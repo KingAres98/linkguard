@@ -1,14 +1,20 @@
+import ScanForm from "@/components/ScanForm";
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-      <h1 className="text-4xl font-semibold tracking-widest text-white">
+    <main className="flex min-h-screen flex-col items-center justify-center px-6 py-16 text-center">
+      <h1 className="text-4xl font-semibold tracking-widest text-white sm:text-5xl">
         LINKGUARD
       </h1>
-      <p className="mt-4 max-w-md text-slate-400">
+      <p className="mt-4 mb-10 max-w-md text-slate-400">
         Understand the security posture of a website.
       </p>
-      <p className="mt-8 text-xs uppercase tracking-widest text-cyan-400">
-        Under construction
+
+      <ScanForm />
+
+      <p className="mt-12 max-w-md text-xs text-slate-500">
+        LinkGuard reports observable security properties. It does not decide
+        whether a website is &quot;safe.&quot;
       </p>
     </main>
   );
