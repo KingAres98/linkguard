@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import ReportView from "@/components/ReportView";
-import { createSampleReport } from "@/lib/scanner/sample-report";
+import { MAX_URL_LENGTH } from "@/lib/scanner/validate-input";
 import type { ScanReport } from "@/lib/scanner/types";
 
 type FormState =
@@ -11,17 +11,18 @@ type FormState =
   | { phase: "error"; message: string }
   | { phase: "done"; report: ScanReport };
 
-const MAX_URL_LENGTH = 2048;
+const REQUEST_TIMEOUT_MS = 15000;
 
 export default function ScanForm() {
   const [url, setUrl] = useState("");
   const [state, setState] = useState<FormState>({ phase: "idle" });
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const trimmed = url.trim();
 
+    // Convenience checks only. The server re-validates everything.
     if (trimmed.length === 0) {
       setState({ phase: "error", message: "Enter a URL to scan." });
       return;
@@ -36,10 +37,34 @@ export default function ScanForm() {
 
     setState({ phase: "loading" });
 
-    // Placeholder: simulates a scan. Replaced by a real API call later.
-    setTimeout(() => {
-      setState({ phase: "done", report: createSampleReport(trimmed) });
-    }, 1200);
+    try {
+      const response = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmed }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        report?: ScanReport;
+        error?: string;
+      } | null;
+
+      if (!response.ok || !data?.report) {
+        setState({
+          phase: "error",
+          message: data?.error ?? "The scan failed. Please try again.",
+        });
+        return;
+      }
+
+      setState({ phase: "done", report: data.report });
+    } catch {
+      setState({
+        phase: "error",
+        message: "The scan service did not respond. Check your connection and try again.",
+      });
+    }
   }
 
   const isLoading = state.phase === "loading";
@@ -87,7 +112,6 @@ export default function ScanForm() {
           </p>
         )}
 
-        {/* Short announcements only. The full report lives outside this region. */}
         <div role="status" aria-live="polite" className="mt-6 text-left text-sm">
           {isLoading && <p className="text-slate-400">Running checks…</p>}
           {state.phase === "done" && (
