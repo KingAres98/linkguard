@@ -1,4 +1,4 @@
-import { createSampleReport } from "@/lib/scanner/sample-report";
+import { runScan } from "@/lib/scanner/scan";
 import { parseScanRequest } from "@/lib/scanner/validate-input";
 
 // Our scanner will need Node's tls/dns modules later, so pin the Node runtime.
@@ -42,8 +42,11 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse(400, parsed.error);
   }
 
-  // Deliberately NOT logging parsed.url (may contain sensitive query strings).
-  // TEMPORARY: still sample data. Real checkers replace this in later steps.
-  const report = createSampleReport(parsed.url);
-  return Response.json({ report }, { headers: BASE_HEADERS });
+    // Deliberately NOT logging parsed.url (may contain sensitive query strings).
+  const result = await runScan(parsed.url);
+  if (!result.ok) {
+    return errorResponse(400, result.error);
+  }
+
+  return Response.json({ report: result.report }, { headers: BASE_HEADERS });
 }

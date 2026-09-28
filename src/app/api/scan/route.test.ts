@@ -17,8 +17,21 @@ describe("POST /api/scan", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     const data = await response.json();
-    expect(data.report.target).toBe("https://example.com");
+    expect(data.report.target).toBe("https://example.com/");
     expect(Array.isArray(data.report.findings)).toBe(true);
+  });
+
+  it("accepts a url without a scheme", async () => {
+    const response = await POST(makeRequest(JSON.stringify({ url: "example.com" })));
+    expect(response.status).toBe(200);
+  });
+
+  it("rejects unsupported schemes with 400 and does not echo the input", async () => {
+    const response = await POST(
+      makeRequest(JSON.stringify({ url: "javascript:alert('leakcheck')" })),
+    );
+    expect(response.status).toBe(400);
+    expect(await response.text()).not.toContain("leakcheck");
   });
 
   it("rejects a non-JSON content type with 415", async () => {

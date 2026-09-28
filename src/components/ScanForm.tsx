@@ -115,7 +115,7 @@ export default function ScanForm() {
         <div role="status" aria-live="polite" className="mt-6 text-left text-sm">
           {isLoading && <p className="text-slate-400">Running checks…</p>}
           {state.phase === "done" && (
-            <p className="text-slate-300">Scan complete. Sample report shown below.</p>
+                <p className="text-slate-300">Scan complete. Report shown below.</p>
           )}
         </div>
       </form>
