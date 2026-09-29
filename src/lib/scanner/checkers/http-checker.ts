@@ -62,7 +62,7 @@ export async function checkHttpResponse(
 
   return {
     outcome,
-    finding: {
+        finding: {
       id: `http.error.${outcome.reason}`,
       category: "url",
       status: "unknown",
@@ -71,7 +71,7 @@ export async function checkHttpResponse(
       description: ERROR_REASON_TEXT[outcome.reason] ?? outcome.message,
       whyItMatters: "Without a response, LinkGuard cannot check headers or content for this target.",
       recommendation: "",
-      evidence: [{ label: "Reason", value: outcome.reason }],
+        evidence: [{ label: "Reason", value: outcome.reason }],
       confidence: "medium",
     },
   };

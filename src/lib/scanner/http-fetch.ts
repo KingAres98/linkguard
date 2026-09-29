@@ -26,19 +26,34 @@ export type FetchOutcome =
  * historical reasons. We only implement the one shape Node's own http/https
  * modules actually use internally, so this is typed loosely on purpose.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- see comment above
+// Node's dns.LookupFunction type has several call-shape overloads; we
+// implement all shapes Node's own http/https internals actually use, so
+// this is typed loosely on purpose.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makePinnedLookup(ip: string, family: 4 | 6): any {
   return (
     _hostname: string,
     options: unknown,
-    callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
+    callback?: (err: NodeJS.ErrnoException | null, address: unknown, family?: number) => void,
   ) => {
-    // Guard for the legacy 2-argument form (hostname, callback).
+    // Legacy 2-argument form: (hostname, callback).
     if (typeof options === "function") {
-      (options as typeof callback)(null, ip, family);
+      options(null, ip, family);
       return;
     }
-    callback(null, ip, family);
+
+    const wantsAll =
+      typeof options === "object" && options !== null && (options as { all?: boolean }).all === true;
+
+    if (wantsAll) {
+      // When `all: true` is requested, Node expects an ARRAY of results,
+      // not a single (address, family) pair. Passing a bare string here is
+      // what caused "Invalid IP address: undefined".
+      callback?.(null, [{ address: ip, family }]);
+      return;
+    }
+
+    callback?.(null, ip, family);
   };
 }
 
@@ -77,13 +92,18 @@ export function fetchOnce(
     const transport = url.protocol === "https:" ? https : http;
     const family = pinnedIp.includes(":") ? 6 : 4;
 
-    const request = transport.request(
+        const request = transport.request(
       {
-        hostname: url.hostname, // kept for the Host header and TLS SNI
+        hostname: url.hostname, // used for the Host header
         port: url.port || (url.protocol === "https:" ? 443 : 80),
         path: `${url.pathname}${url.search}`,
         method: "GET",
         lookup: makePinnedLookup(pinnedIp, family),
+        // Without this, Node's TLS layer has no hostname to verify the
+        // certificate against (it only sees the pinned IP), and the
+        // handshake fails. servername restores correct SNI + cert
+        // validation while the actual socket still connects to pinnedIp.
+        servername: url.protocol === "https:" ? url.hostname : undefined,
         timeout: timeoutMs,
         headers: {
           "User-Agent": USER_AGENT,
@@ -127,8 +147,8 @@ export function fetchOnce(
       settle({ kind: "error", reason: "timeout", message: "The request timed out." });
     });
 
-    request.on("error", () => {
-      settle({ kind: "error", reason: "network", message: "The request could not be completed." });
+        request.on("error", (err) => {
+      settle({ kind: "error", reason: "network", message: `The request could not be completed: ${err.message}` });
     });
 
     request.end();
