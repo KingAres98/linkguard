@@ -13,20 +13,19 @@ const REASON_TEXT: Record<string, string> = {
   "no-addresses": "did not resolve to any address",
 };
 
-/**
- * Confirms the target is safe for LinkGuard to connect to. This is a
- * pass/fail gate, not just an indicator: if this fails, later phases
- * (HTTP fetch, redirects, TLS) must not run at all.
- */
-export async function checkTargetIsSafe(hostname: string): Promise<{
+export interface TargetSafetyResult {
   finding: Finding;
   safeToConnect: boolean;
-}> {
+  resolvedIps?: string[];
+}
+
+export async function checkTargetIsSafe(hostname: string): Promise<TargetSafetyResult> {
   const result: SafeUrlResult = await resolveAndValidateHost(hostname);
 
   if (result.safe) {
     return {
       safeToConnect: true,
+      resolvedIps: result.resolvedIps,
       finding: {
         id: "ssrf.target.allowed",
         category: "url",
@@ -60,8 +59,7 @@ export async function checkTargetIsSafe(hostname: string): Promise<{
       recommendation: "",
       evidence: [{ label: "Reason", value: result.reason }],
       confidence: "high",
-      limitations:
-        "This is a safety restriction, not a security finding about the destination itself.",
+      limitations: "This is a safety restriction, not a security finding about the destination itself.",
     },
   };
 }

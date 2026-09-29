@@ -23,4 +23,11 @@ describe("runScan", () => {
     const result = await runScan("javascript:alert(1)");
     expect(result.ok).toBe(false);
   });
+    it("fetches the target once the safety check passes, and reports the response", async () => {
+    const result = await runScan("https://example.com");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const finding = result.report.findings.find((f) => f.id.startsWith("http."));
+    expect(finding).toBeDefined();
+  }, 15000);
 });
