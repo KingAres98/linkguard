@@ -1,4 +1,5 @@
 import { buildRedirectFindings } from "./checkers/redirect-checker";
+import { checkDnsSecurity } from "./checkers/dns-checker";
 import { checkTargetIsSafe } from "./checkers/ssrf-checker";
 import { checkTls } from "./checkers/tls-checker";
 import { checkSecurityHeaders } from "./checkers/header-checker";
@@ -32,12 +33,16 @@ export async function runScan(input: string): Promise<ScanResult> {
   );
   findings.push(ssrfFinding);
 
-  if (safeToConnect && resolvedIps && resolvedIps.length > 0) {
+    if (safeToConnect && resolvedIps && resolvedIps.length > 0) {
+    // DNS/email checks use the ORIGINAL hostname (the domain the user
+    // entered), not wherever a redirect eventually lands, since SPF/DMARC
+    // describe who may send email for the domain being scanned. They run
+    // independently of the HTTP fetch below, so we kick both off together.
+    const dnsFindingsPromise = checkDnsSecurity(normalized.url.hostname);
+
     const chainOutcome = await followRedirects(normalized.url, resolvedIps[0]);
     findings.push(...buildRedirectFindings(chainOutcome));
 
-        // TLS and headers both run against the FINAL destination after any
-    // redirects, and only if that final response actually succeeded.
     if (chainOutcome.kind === "final") {
       const finalUrl = new URL(chainOutcome.hops[chainOutcome.hops.length - 1].url);
 
@@ -46,9 +51,6 @@ export async function runScan(input: string): Promise<ScanResult> {
       );
 
       if (finalUrl.protocol === "https:") {
-        // Re-validate and re-resolve the final host: it may differ from the
-        // original if we followed redirects, and TLS must connect to a
-        // freshly pinned, already-validated IP just like every other step.
         const finalSafety = await resolveAndValidateHost(finalUrl.hostname);
         if (finalSafety.safe) {
           const port = finalUrl.port ? Number(finalUrl.port) : 443;
@@ -57,7 +59,7 @@ export async function runScan(input: string): Promise<ScanResult> {
       }
     }
 
-    // DNS and email security checkers plug in here in later steps.
+    findings.push(...(await dnsFindingsPromise));
   }
 
   return {

@@ -46,4 +46,13 @@ describe("runScan", () => {
     const headerFinding = result.report.findings.find((f) => f.id.startsWith("headers."));
     expect(headerFinding).toBeDefined();
   }, 15000);
+    it("includes DNS/email security findings", async () => {
+    const result = await runScan("https://google.com");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const emailFinding = result.report.findings.find((f) => f.category === "email");
+    const dnsFinding = result.report.findings.find((f) => f.category === "dns" && f.id.startsWith("dns.dnssec"));
+    expect(emailFinding).toBeDefined();
+    expect(dnsFinding).toBeDefined();
+  }, 20000);
 });
