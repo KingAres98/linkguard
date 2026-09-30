@@ -39,4 +39,11 @@ describe("runScan", () => {
     const tlsFinding = result.report.findings.find((f) => f.id.startsWith("tls."));
     expect(tlsFinding).toBeDefined();
   }, 15000);
+    it("includes security header findings for an https target", async () => {
+    const result = await runScan("https://example.com");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const headerFinding = result.report.findings.find((f) => f.id.startsWith("headers."));
+    expect(headerFinding).toBeDefined();
+  }, 15000);
 });
