@@ -1,7 +1,8 @@
-import { checkHttpResponse } from "./checkers/http-checker";
+import { buildRedirectFindings } from "./checkers/redirect-checker";
 import { checkTargetIsSafe } from "./checkers/ssrf-checker";
 import { analyzeUrl } from "./checkers/url-checker";
 import { normalizeUrl } from "./normalize-url";
+import { followRedirects } from "./redirect-chain";
 import type { Finding, ScanReport } from "./types";
 
 export type ScanResult =
@@ -23,20 +24,19 @@ export async function runScan(input: string): Promise<ScanResult> {
 
   const findings: Finding[] = [...analyzeUrl(normalized)];
 
-  // Gate: every network-based checker (HTTP fetch, TLS, headers) is called
-  // from inside this `if`, using the pinned IP we already validated.
-  // Nothing else in the scanner is allowed to make network calls.
+  // Gate: every network-based checker (HTTP fetch, redirects, TLS, headers)
+  // is called from inside this `if`, using the pinned IP already validated.
   const { finding: ssrfFinding, safeToConnect, resolvedIps } = await checkTargetIsSafe(
     normalized.url.hostname,
   );
   findings.push(ssrfFinding);
 
   if (safeToConnect && resolvedIps && resolvedIps.length > 0) {
-    const { finding: httpFinding } = await checkHttpResponse(normalized.url, resolvedIps[0]);
-    findings.push(httpFinding);
+    const chainOutcome = await followRedirects(normalized.url, resolvedIps[0]);
+    findings.push(...buildRedirectFindings(chainOutcome));
 
-    // TLS, security header, and redirect-following checkers plug in here in
-    // later steps, still guarded by the SSRF check above.
+    // TLS and security header checkers plug in here in later steps, once
+    // we have a final, validated destination to inspect.
   }
 
   return {

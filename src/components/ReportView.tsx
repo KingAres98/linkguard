@@ -9,10 +9,10 @@ export default function ReportView({ report }: { report: ScanReport }) {
 
   return (
     <section aria-labelledby="report-heading" className="w-full text-left">
-              <p className="mb-4 rounded border border-slate-600 bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
-        Partial scan: this version fetches the page once, without following
-        redirects, and confirms the target is a public address. TLS details,
-        security headers, and DNS records are not checked yet.
+        <p className="mb-4 rounded border border-slate-600 bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
+        Partial scan: this version follows redirects (validating each hop
+        independently) and confirms every address involved is public. TLS
+        details, security headers, and DNS records are not checked yet.
       </p>
 
       <h2 id="report-heading" className="text-xl font-semibold text-white">

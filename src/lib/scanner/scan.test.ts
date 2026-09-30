@@ -23,11 +23,13 @@ describe("runScan", () => {
     const result = await runScan("javascript:alert(1)");
     expect(result.ok).toBe(false);
   });
-    it("fetches the target once the safety check passes, and reports the response", async () => {
+      it("fetches the target once the safety check passes, and reports the response and redirect status", async () => {
     const result = await runScan("https://example.com");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const finding = result.report.findings.find((f) => f.id.startsWith("http."));
-    expect(finding).toBeDefined();
+    const httpFinding = result.report.findings.find((f) => f.id.startsWith("http."));
+    const redirectFinding = result.report.findings.find((f) => f.id.startsWith("redirect."));
+    expect(httpFinding).toBeDefined();
+    expect(redirectFinding).toBeDefined();
   }, 15000);
 });
