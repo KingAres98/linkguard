@@ -45,9 +45,9 @@ describe("evaluatePosture", () => {
     expect(result.drivenBy?.id).toBe("the-one-issue");
   });
 
-  it("treats a single low-severity warning as needs-attention, not critical", () => {
+    it("treats a single low-severity warning as minor-notes, not needs-attention or critical", () => {
     const result = evaluatePosture([makeFinding("pass", "info"), makeFinding("warning", "low")]);
-    expect(result.posture).toBe("needs-attention");
+    expect(result.posture).toBe("minor-notes");
   });
 
   it("treats a medium-severity fail as needs-attention", () => {
@@ -73,14 +73,20 @@ describe("evaluatePosture", () => {
     expect(result.drivenBy?.id).toBe("high-one");
   });
 
-  it("never returns a posture label implying safety or trust", () => {
+      it("never returns a posture label implying safety or trust", () => {
     const allPostureLabels = Object.values({
       empty: evaluatePosture([]).label,
       clean: evaluatePosture([makeFinding("pass", "info")]).label,
+      minor: evaluatePosture([makeFinding("warning", "low")]).label,
       bad: evaluatePosture([makeFinding("fail", "critical")]).label,
     });
     for (const label of allPostureLabels) {
       expect(label.toLowerCase()).not.toMatch(/\bsafe\b|\btrusted\b|\bverified\b|\bsecure\b/);
     }
+  });
+    it("does not let one low-severity finding carry the same label as a medium-severity one", () => {
+    const lowOnly = evaluatePosture([makeFinding("warning", "low")]);
+    const mediumOnly = evaluatePosture([makeFinding("fail", "medium")]);
+    expect(lowOnly.label).not.toBe(mediumOnly.label);
   });
 });

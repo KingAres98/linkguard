@@ -3,6 +3,7 @@ import type { Finding, Severity } from "./types";
 export const POSTURES = [
   "critical-issues",
   "needs-attention",
+  "minor-notes",
   "good-configuration",
   "insufficient-data",
 ] as const;
@@ -18,6 +19,7 @@ export interface PostureResult {
 const POSTURE_LABELS: Record<Posture, string> = {
   "critical-issues": "Critical Issues Found",
   "needs-attention": "Needs Attention",
+  "minor-notes": "Good Configuration — Minor Notes",
   "good-configuration": "Good Configuration Observed",
   "insufficient-data": "Insufficient Data",
 };
@@ -55,12 +57,22 @@ export function evaluatePosture(findings: Finding[]): PostureResult {
     return { posture: "good-configuration", label: POSTURE_LABELS["good-configuration"] };
   }
 
-  const worst = actionable.reduce((worstSoFar, current) =>
+    const worst = actionable.reduce((worstSoFar, current) =>
     SEVERITY_RANK[current.severity] > SEVERITY_RANK[worstSoFar.severity] ? current : worstSoFar,
   );
 
-  const posture: Posture =
-    worst.severity === "critical" || worst.severity === "high" ? "critical-issues" : "needs-attention";
+  let posture: Posture;
+  if (worst.severity === "critical" || worst.severity === "high") {
+    posture = "critical-issues";
+  } else if (worst.severity === "medium") {
+    posture = "needs-attention";
+  } else {
+    // worst.severity === "low" here. This finding is 100% real and still
+    // shown in full below — this only affects how the OVERALL label reads,
+    // so a single minor gap doesn't carry the same weight as a medium or
+    // high-severity issue.
+    posture = "minor-notes";
+  }
 
   return { posture, label: POSTURE_LABELS[posture], drivenBy: worst };
 }

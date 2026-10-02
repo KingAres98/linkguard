@@ -8,6 +8,7 @@ import CategorySection from "./CategorySection";
 const POSTURE_STYLES: Record<string, string> = {
   "Critical Issues Found": "border-red-500/50 bg-red-500/10 text-red-300",
   "Needs Attention": "border-amber-500/50 bg-amber-500/10 text-amber-300",
+  "Good Configuration — Minor Notes": "border-sky-500/50 bg-sky-500/10 text-sky-300",
   "Good Configuration Observed": "border-emerald-500/50 bg-emerald-500/10 text-emerald-300",
   "Insufficient Data": "border-slate-500/50 bg-slate-500/10 text-slate-300",
 };
