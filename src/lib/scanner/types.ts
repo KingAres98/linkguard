@@ -68,4 +68,8 @@ export interface ScanReport {
   target: string;
   scannedAt: string; // ISO 8601 timestamp
   findings: Finding[];
+  posture: {
+    label: string;
+    drivenByFindingId?: string;
+  };
 }

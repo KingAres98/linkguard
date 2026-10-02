@@ -1,12 +1,27 @@
 import type { Finding } from "@/lib/scanner/types";
 import StatusBadge from "./StatusBadge";
 
-export default function FindingCard({ finding }: { finding: Finding }) {
+export default function FindingCard({
+  finding,
+  isPostureDriver = false,
+}: {
+  finding: Finding;
+  isPostureDriver?: boolean;
+}) {
   return (
-    <article className="rounded-lg border border-slate-800 bg-slate-900/50 p-5 text-left">
+    <article
+      className={`rounded-lg border p-5 text-left ${
+        isPostureDriver ? "border-amber-500/60 bg-amber-500/5" : "border-slate-800 bg-slate-900/50"
+      }`}
+    >
       <header className="flex flex-wrap items-center gap-3">
         <StatusBadge status={finding.status} />
         <h3 className="text-base font-semibold text-white">{finding.title}</h3>
+        {isPostureDriver && (
+          <span className="rounded border border-amber-500/50 px-2 py-0.5 text-xs font-medium text-amber-300">
+            Drives overall posture
+          </span>
+        )}
         <span className="ml-auto text-xs uppercase tracking-wider text-slate-500">
           {finding.category} · severity: {finding.severity}
         </span>

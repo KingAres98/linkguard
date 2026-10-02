@@ -1,5 +1,6 @@
 import { buildRedirectFindings } from "./checkers/redirect-checker";
 import { checkDnsSecurity } from "./checkers/dns-checker";
+import { evaluatePosture } from "./posture";
 import { checkTargetIsSafe } from "./checkers/ssrf-checker";
 import { checkTls } from "./checkers/tls-checker";
 import { checkSecurityHeaders } from "./checkers/header-checker";
@@ -62,12 +63,18 @@ export async function runScan(input: string): Promise<ScanResult> {
     findings.push(...(await dnsFindingsPromise));
   }
 
+    const posture = evaluatePosture(findings);
+
   return {
     ok: true,
     report: {
       target: toDisplayTarget(normalized.url),
       scannedAt: new Date().toISOString(),
       findings,
+      posture: {
+        label: posture.label,
+        drivenByFindingId: posture.drivenBy?.id,
+      },
     },
   };
 }

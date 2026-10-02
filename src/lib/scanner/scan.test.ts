@@ -55,4 +55,10 @@ describe("runScan", () => {
     expect(emailFinding).toBeDefined();
     expect(dnsFinding).toBeDefined();
   }, 20000);
+    it("attaches a posture label to the report", async () => {
+    const result = await runScan("https://example.com");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.report.posture.label).toBeTruthy();
+  }, 15000);
 });
