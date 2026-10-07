@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import ReportView from "@/components/ReportView";
-import { requestJson } from "@/lib/dashboard/client";
+import { requestJson, type ApiResult } from "@/lib/dashboard/client";
 import type { StoredScan, TrackedDomain } from "@/lib/storage/types";
 
 type DomainRow = TrackedDomain & {
@@ -47,8 +47,9 @@ export default function Dashboard() {
   const [history, setHistory] = useState<History | null>(null);
   const [openScanId, setOpenScanId] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    const result = await requestJson<{ domains: DomainRow[] }>("/api/domains");
+    // Turns a list-domains response into screen state. Shared by the first
+  // load (below) and by refresh() after every change.
+  const applyDomainsResult = useCallback((result: ApiResult<{ domains: DomainRow[] }>) => {
     if (result.ok) {
       setDomains(result.data.domains);
       setLoadError(null);
@@ -57,9 +58,22 @@ export default function Dashboard() {
     }
   }, []);
 
+  async function refresh() {
+    applyDomainsResult(await requestJson<{ domains: DomainRow[] }>("/api/domains"));
+  }
+
+  // First load. State is only set inside the .then callback, after the
+  // response arrives. The cancelled flag stops a late response from
+  // updating a page that has already gone away.
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let cancelled = false;
+    void requestJson<{ domains: DomainRow[] }>("/api/domains").then((result) => {
+      if (!cancelled) applyDomainsResult(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyDomainsResult]);
 
   async function showHistory(domain: DomainRow) {
     const result = await requestJson<{ scans: StoredScan[] }>(
