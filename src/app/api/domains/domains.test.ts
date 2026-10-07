@@ -6,8 +6,7 @@ import { createMemoryStore } from "@/lib/storage/memory-store";
 import { GET, POST } from "./route";
 import { DELETE } from "./[id]/route";
 import { POST as SCAN } from "./[id]/scan/route";
-import { GET as HISTORY } from "./[id]/scans/route";
-
+import { DELETE as CLEAR, GET as HISTORY } from "./[id]/scans/route";
 vi.mock("@/lib/scanner/scan", () => ({ runScan: vi.fn() }));
 
 function req(method: string, body?: unknown, headers: Record<string, string> = {}) {
@@ -45,7 +44,7 @@ afterEach(() => {
 describe("dashboard guard", () => {
   it("answers 404 on every route when the feature flag is off", async () => {
     delete process.env.LINKGUARD_DASHBOARD_ENABLED;
-    expect((await GET(req("GET"))).status).toBe(404);
+    expect((await CLEAR(req("DELETE"), ctx("x"))).status).toBe(404);
     expect((await POST(req("POST", { hostname: "example.com" }))).status).toBe(404);
     expect((await DELETE(req("DELETE"), ctx("x"))).status).toBe(404);
     expect((await SCAN(req("POST"), ctx("x"))).status).toBe(404);
@@ -192,4 +191,31 @@ describe("DELETE /api/domains/[id]", () => {
     expect((await (await GET(req("GET"))).json()).domains).toEqual([]);
     expect((await DELETE(req("DELETE"), ctx(domain.id))).status).toBe(404);
   });
+  
+describe("clearing history", () => {
+  it("deletes the saved scans but keeps the domain tracked", async () => {
+    const domain = await addDomain("example.com");
+    vi.mocked(runScan).mockResolvedValue({
+      ok: true,
+      report: makeReport("https://example.com/", "Needs Attention"),
+    });
+    await SCAN(req("POST"), ctx(domain.id));
+    await SCAN(req("POST"), ctx(domain.id));
+
+    const res = await CLEAR(req("DELETE"), ctx(domain.id));
+    expect(res.status).toBe(200);
+    expect((await res.json()).removed).toBe(2);
+
+    const history = await (await HISTORY(req("GET"), ctx(domain.id))).json();
+    expect(history.scans).toEqual([]);
+
+    const listed = await (await GET(req("GET"))).json();
+    expect(listed.domains).toHaveLength(1);
+    expect(listed.domains[0].latest).toBeNull();
+  });
+
+  it("returns 404 for an unknown domain", async () => {
+    expect((await CLEAR(req("DELETE"), ctx("no-such-id"))).status).toBe(404);
+  });
+});
 });

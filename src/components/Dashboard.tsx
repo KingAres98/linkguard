@@ -145,6 +145,24 @@ export default function Dashboard() {
     if (history?.domainId === domain.id) setHistory(null);
     await refresh();
   }
+    async function handleClearHistory(target: History) {
+    if (!window.confirm(`Delete all saved scans for ${target.hostname}? The domain stays tracked.`)) {
+      return;
+    }
+
+    setNotice(null);
+    const result = await requestJson<{ ok: boolean; removed: number }>(
+      `/api/domains/${encodeURIComponent(target.domainId)}/scans`,
+      { method: "DELETE" },
+    );
+    if (!result.ok) {
+      setNotice(result.error);
+      return;
+    }
+    setHistory({ ...target, scans: [] });
+    setOpenScanId(null);
+    await refresh();
+  }
 
   const busy = scanningId !== null;
   const openScan = history?.scans.find((s) => s.id === openScanId) ?? null;
@@ -278,9 +296,24 @@ export default function Dashboard() {
 
       {history && (
         <section aria-labelledby="history-heading" className="mt-10">
-          <h2 id="history-heading" className="mb-3 text-lg font-semibold text-white">
-            History for <span className="break-all font-mono">{history.hostname}</span>
-          </h2>
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 id="history-heading" className="text-lg font-semibold text-white">
+              History for <span className="break-all font-mono">{history.hostname}</span>
+            </h2>
+            {history.scans.length > 0 && (
+              <button
+                type="button"
+                onClick={() => handleClearHistory(history)}
+                disabled={busy}
+                className="rounded border border-red-500/40 px-3 py-1.5 text-sm text-red-300 hover:bg-red-500/10 focus:outline-none focus:ring-2 focus:ring-red-400/60 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Clear history
+              </button>
+            )}
+          </div>
+          <p className="mb-4 text-xs text-slate-500">
+            LinkGuard keeps the newest 20 scans for each domain and deletes older ones automatically.
+          </p>
 
           {history.scans.length === 0 ? (
             <p className="text-sm text-slate-400">No scans saved yet. Click Scan above.</p>

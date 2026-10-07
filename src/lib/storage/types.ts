@@ -7,6 +7,9 @@ export interface TrackedDomain {
   createdAt: string; // ISO 8601
 }
 
+/** Each tracked domain keeps only its newest scans; older ones are deleted on save. */
+export const MAX_SCANS_PER_DOMAIN = 20;
+
 export interface StoredScan {
   id: string;
   domainId: string;
@@ -32,4 +35,9 @@ export interface ScanStore {
   saveScan(ownerId: string, domainId: string, report: ScanReport): Promise<StoredScan>;
   /** Newest first. Returns [] if the domain doesn't exist for this owner. */
   listScans(ownerId: string, domainId: string, limit?: number): Promise<StoredScan[]>;
+  /**
+   * Deletes every saved scan for a domain but keeps the domain itself.
+   * Returns how many scans were deleted (0 if the domain isn't this owner's).
+   */
+  clearScans(ownerId: string, domainId: string): Promise<number>;
 }

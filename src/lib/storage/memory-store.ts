@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { ScanReport } from "@/lib/scanner/types";
-import type { ScanStore, StoredScan, TrackedDomain } from "./types";
-
+import {
+  MAX_SCANS_PER_DOMAIN,
+  type ScanStore,
+  type StoredScan,
+  type TrackedDomain,
+} from "./types";
 const DEFAULT_SCAN_LIMIT = 50;
 
 export function createMemoryStore(): ScanStore {
@@ -53,7 +57,16 @@ export function createMemoryStore(): ScanStore {
         postureLabel: report.posture.label,
         report,
       };
-      scans.push(scan);
+            scans.push(scan);
+
+      // Retention: keep only this domain's newest MAX_SCANS_PER_DOMAIN scans.
+      const forDomain = scans.filter((s) => s.domainId === domainId);
+      const excess = forDomain.length - MAX_SCANS_PER_DOMAIN;
+      if (excess > 0) {
+        const drop = new Set(forDomain.slice(0, excess).map((s) => s.id));
+        scans = scans.filter((s) => !drop.has(s.id));
+      }
+
       return scan;
     },
 
@@ -61,8 +74,15 @@ export function createMemoryStore(): ScanStore {
       if (!findDomain(ownerId, domainId)) return [];
       return scans
         .filter((s) => s.domainId === domainId)
-        .reverse()
+                .reverse()
         .slice(0, limit);
+    },
+
+    async clearScans(ownerId, domainId) {
+      if (!findDomain(ownerId, domainId)) return 0;
+      const before = scans.length;
+      scans = scans.filter((s) => s.domainId !== domainId);
+      return before - scans.length;
     },
   };
 }

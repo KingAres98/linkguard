@@ -3,7 +3,12 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { ScanReport } from "@/lib/scanner/types";
-import type { ScanStore, StoredScan, TrackedDomain } from "./types";
+import {
+  MAX_SCANS_PER_DOMAIN,
+  type ScanStore,
+  type StoredScan,
+  type TrackedDomain,
+} from "./types";
 
 const DEFAULT_SCAN_LIMIT = 50;
 
@@ -98,6 +103,18 @@ export function createSqliteStore(db: Database.Database): ScanStore {
     "SELECT * FROM scans WHERE domain_id = ? ORDER BY seq DESC LIMIT ?",
   );
 
+  // Deletes everything for the domain EXCEPT its newest N rows (by seq).
+  const pruneScans = db.prepare(
+    "DELETE FROM scans WHERE domain_id = ? AND seq NOT IN (SELECT seq FROM scans WHERE domain_id = ? ORDER BY seq DESC LIMIT ?)",
+  );
+  const deleteScansForDomain = db.prepare("DELETE FROM scans WHERE domain_id = ?");
+
+  // One transaction: the insert and the prune both happen, or neither does.
+  const saveAndPrune = db.transaction((id: string, domainId: string, report: ScanReport) => {
+    insertScan.run(id, domainId, report.scannedAt, report.posture.label, JSON.stringify(report));
+    pruneScans.run(domainId, domainId, MAX_SCANS_PER_DOMAIN);
+  });
+
   function findDomain(ownerId: string, domainId: string): DomainRow | undefined {
     return selectDomainById.get(domainId, ownerId) as DomainRow | undefined;
   }
@@ -130,7 +147,7 @@ export function createSqliteStore(db: Database.Database): ScanStore {
         throw new Error("Domain not found");
       }
       const id = randomUUID();
-      insertScan.run(id, domainId, report.scannedAt, report.posture.label, JSON.stringify(report));
+      saveAndPrune(id, domainId, report);
       return {
         id,
         domainId,
@@ -143,6 +160,11 @@ export function createSqliteStore(db: Database.Database): ScanStore {
     async listScans(ownerId, domainId, limit = DEFAULT_SCAN_LIMIT) {
       if (!findDomain(ownerId, domainId)) return [];
       return (selectScans.all(domainId, limit) as ScanRow[]).map(toScan);
+    },
+
+    async clearScans(ownerId, domainId) {
+      if (!findDomain(ownerId, domainId)) return 0;
+      return deleteScansForDomain.run(domainId).changes;
     },
   };
 }
