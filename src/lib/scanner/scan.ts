@@ -1,18 +1,26 @@
 import { buildRedirectFindings } from "./checkers/redirect-checker";
 import { checkDnsSecurity } from "./checkers/dns-checker";
-import { evaluatePosture } from "./posture";
 import { checkTargetIsSafe } from "./checkers/ssrf-checker";
 import { checkTls } from "./checkers/tls-checker";
 import { checkSecurityHeaders } from "./checkers/header-checker";
+import { checkThreatIntel, hostnamesFromUrls } from "./checkers/threat-checker";
 import { analyzeUrl } from "./checkers/url-checker";
 import { normalizeUrl } from "./normalize-url";
 import { followRedirects } from "./redirect-chain";
 import { resolveAndValidateHost } from "./ssrf-guard";
+import { evaluatePosture } from "./posture";
+import { getThreatIndex } from "@/lib/threat";
+import type { ThreatIndex } from "@/lib/threat/types";
 import type { Finding, ScanReport } from "./types";
 
 export type ScanResult =
   | { ok: true; report: ScanReport }
   | { ok: false; error: string };
+
+/** Lets tests supply their own threat index. App code never passes this. */
+export interface ScanDeps {
+  threatIndex?: ThreatIndex;
+}
 
 function toDisplayTarget(url: URL): string {
   const copy = new URL(url.href);
@@ -21,20 +29,21 @@ function toDisplayTarget(url: URL): string {
   return copy.href;
 }
 
-export async function runScan(input: string): Promise<ScanResult> {
+export async function runScan(input: string, deps: ScanDeps = {}): Promise<ScanResult> {
   const normalized = normalizeUrl(input);
   if (!normalized.ok) {
     return { ok: false, error: normalized.error };
   }
 
   const findings: Finding[] = [...analyzeUrl(normalized)];
+  const redirectUrls: string[] = [];
 
   const { finding: ssrfFinding, safeToConnect, resolvedIps } = await checkTargetIsSafe(
     normalized.url.hostname,
   );
   findings.push(ssrfFinding);
 
-    if (safeToConnect && resolvedIps && resolvedIps.length > 0) {
+  if (safeToConnect && resolvedIps && resolvedIps.length > 0) {
     // DNS/email checks use the ORIGINAL hostname (the domain the user
     // entered), not wherever a redirect eventually lands, since SPF/DMARC
     // describe who may send email for the domain being scanned. They run
@@ -43,6 +52,7 @@ export async function runScan(input: string): Promise<ScanResult> {
 
     const chainOutcome = await followRedirects(normalized.url, resolvedIps[0]);
     findings.push(...buildRedirectFindings(chainOutcome));
+    redirectUrls.push(...chainOutcome.hops.map((hop) => hop.url));
 
     if (chainOutcome.kind === "final") {
       const finalUrl = new URL(chainOutcome.hops[chainOutcome.hops.length - 1].url);
@@ -63,7 +73,17 @@ export async function runScan(input: string): Promise<ScanResult> {
     findings.push(...(await dnsFindingsPromise));
   }
 
-    const posture = evaluatePosture(findings);
+  // Threat feeds are a local lookup (no network), so this runs for every
+  // target, including ones we refused to connect to. It covers the entered
+  // hostname AND every redirect destination.
+  findings.push(
+    ...(await checkThreatIntel(
+      () => deps.threatIndex ?? getThreatIndex(),
+      hostnamesFromUrls(normalized.url.hostname, redirectUrls),
+    )),
+  );
+
+  const posture = evaluatePosture(findings);
 
   return {
     ok: true,

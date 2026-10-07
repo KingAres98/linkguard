@@ -28,6 +28,7 @@ export const CATEGORIES = [
   "dns",
   "email",
   "domain",
+  "threat",
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
 

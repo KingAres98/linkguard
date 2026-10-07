@@ -1,6 +1,7 @@
 import type { Finding, Severity } from "./types";
 
 export const POSTURES = [
+  "known-threat",
   "critical-issues",
   "needs-attention",
   "minor-notes",
@@ -16,7 +17,8 @@ export interface PostureResult {
   drivenBy?: Finding;
 }
 
-const POSTURE_LABELS: Record<Posture, string> = {
+export const POSTURE_LABELS: Record<Posture, string> = {
+  "known-threat": "Known Threat Listing",
   "critical-issues": "Critical Issues Found",
   "needs-attention": "Needs Attention",
   "minor-notes": "Good Configuration — Minor Notes",
@@ -53,11 +55,17 @@ export function evaluatePosture(findings: Finding[]): PostureResult {
     return { posture: "insufficient-data", label: POSTURE_LABELS["insufficient-data"] };
   }
 
+  // A confirmed threat-feed listing outranks every configuration finding.
+  const listed = findings.find((f) => f.category === "threat" && f.status === "fail");
+  if (listed) {
+    return { posture: "known-threat", label: POSTURE_LABELS["known-threat"], drivenBy: listed };
+  }
+
   if (actionable.length === 0) {
     return { posture: "good-configuration", label: POSTURE_LABELS["good-configuration"] };
   }
 
-    const worst = actionable.reduce((worstSoFar, current) =>
+  const worst = actionable.reduce((worstSoFar, current) =>
     SEVERITY_RANK[current.severity] > SEVERITY_RANK[worstSoFar.severity] ? current : worstSoFar,
   );
 

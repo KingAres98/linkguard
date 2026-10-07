@@ -6,6 +6,7 @@ import CategorySection from "./CategorySection";
 // Visual weight only, chosen to be legible without relying on color alone:
 // the label text itself is always shown alongside these.
 const POSTURE_STYLES: Record<string, string> = {
+  "Known Threat Listing": "border-rose-500/60 bg-rose-500/15 text-rose-200",
   "Critical Issues Found": "border-red-500/50 bg-red-500/10 text-red-300",
   "Needs Attention": "border-amber-500/50 bg-amber-500/10 text-amber-300",
   "Good Configuration — Minor Notes": "border-sky-500/50 bg-sky-500/10 text-sky-300",

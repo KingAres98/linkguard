@@ -17,6 +17,7 @@ const SCAN_TIMEOUT_MS = 45000;
 
 // Keyed by the label text. Unknown labels fall back to a neutral style.
 const POSTURE_CLASSES: Record<string, string> = {
+  "Known Threat Listing": "border-rose-500/60 text-rose-200",
   "Critical Issues Found": "border-red-500/50 text-red-300",
   "Needs Attention": "border-amber-500/50 text-amber-300",
   "Good Configuration — Minor Notes": "border-cyan-500/50 text-cyan-300",
