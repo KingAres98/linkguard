@@ -76,7 +76,8 @@ function listedFinding(
   const direct = listedHosts.includes(scannedHost);
   const viaParent = hits.some((h) => h.matchedHost !== h.host);
 
-  const feeds = `${sources.length} threat ${plural(sources.length, "feed")}: ${names.join(", ")}`;
+  const checkedCount = Math.max(status.length, sources.length);
+  const feeds = `${sources.length} of ${checkedCount} threat ${plural(checkedCount, "feed")} checked (${names.join(", ")})`;
   const description = direct
     ? `${scannedHost} appears in ${feeds}.`
     : `The scanned address redirects to ${listedHosts.join(", ")}, which appears in ${feeds}.`;
