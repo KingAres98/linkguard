@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import DataTransfer from "@/components/DataTransfer";
 import ReportView from "@/components/ReportView";
 import { createBrowserBackend } from "@/lib/dashboard/browser-backend";
 import { createServerBackend, type DomainRow } from "@/lib/dashboard/backend";
@@ -153,6 +154,13 @@ export default function Dashboard({ mode }: { mode: Exclude<DashboardMode, "off"
     await showHistory(target);
   }
 
+  // After an import the data changed underneath any open history view.
+  async function handleImported() {
+    setHistory(null);
+    setOpenScanId(null);
+    await refresh();
+  }
+
   const busy = scanningId !== null;
   const openScan = history?.scans.find((s) => s.id === openScanId) ?? null;
 
@@ -284,6 +292,14 @@ export default function Dashboard({ mode }: { mode: Exclude<DashboardMode, "off"
           </ul>
         )}
       </section>
+
+      {mode === "browser" && (
+        <DataTransfer
+          backend={backend}
+          hasData={domains !== null && domains.length > 0}
+          onImported={handleImported}
+        />
+      )}
 
       {history && (
         <section aria-labelledby="history-heading" className="mt-10">
