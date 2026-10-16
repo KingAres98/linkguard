@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Dashboard from "@/components/Dashboard";
-import { isDashboardEnabled } from "@/lib/dashboard/guard";
+import { getDashboardMode } from "@/lib/dashboard/mode";
 
-// Read the flag on every request instead of freezing it at build time.
+// Read the mode on every request instead of freezing it at build time.
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
@@ -12,11 +12,12 @@ export const metadata: Metadata = {
 };
 
 export default function DashboardPage() {
-  if (!isDashboardEnabled()) notFound();
+  const mode = getDashboardMode();
+  if (mode === "off") notFound();
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-12">
-      <Dashboard />
+      <Dashboard mode={mode} />
     </main>
   );
 }

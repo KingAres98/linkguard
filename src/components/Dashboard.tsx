@@ -1,19 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import ReportView from "@/components/ReportView";
-import { requestJson, type ApiResult } from "@/lib/dashboard/client";
-import type { StoredScan, TrackedDomain } from "@/lib/storage/types";
-
-type DomainRow = TrackedDomain & {
-  latest: { scannedAt: string; postureLabel: string } | null;
-};
+import { createBrowserBackend } from "@/lib/dashboard/browser-backend";
+import { createServerBackend, type DomainRow } from "@/lib/dashboard/backend";
+import type { ApiResult } from "@/lib/dashboard/client";
+import type { DashboardMode } from "@/lib/dashboard/mode";
+import { createIndexedDbStore } from "@/lib/storage/indexeddb-store";
+import type { StoredScan } from "@/lib/storage/types";
 
 type History = { domainId: string; hostname: string; scans: StoredScan[] };
-
-// A full scan runs several network checks, so it gets longer than the default.
-const SCAN_TIMEOUT_MS = 45000;
 
 // Keyed by the label text. Unknown labels fall back to a neutral style.
 const POSTURE_CLASSES: Record<string, string> = {
@@ -37,7 +34,15 @@ function formatTime(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 }
 
-export default function Dashboard() {
+export default function Dashboard({ mode }: { mode: Exclude<DashboardMode, "off"> }) {
+  // Creating the browser store does not touch IndexedDB until first use,
+  // so this is safe during server-side rendering.
+  const backend = useMemo(
+    () =>
+      mode === "browser" ? createBrowserBackend(createIndexedDbStore()) : createServerBackend(),
+    [mode],
+  );
+
   const [domains, setDomains] = useState<DomainRow[] | null>(null); // null = still loading
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hostname, setHostname] = useState("");
@@ -48,7 +53,7 @@ export default function Dashboard() {
   const [history, setHistory] = useState<History | null>(null);
   const [openScanId, setOpenScanId] = useState<string | null>(null);
 
-    // Turns a list-domains response into screen state. Shared by the first
+  // Turns a list-domains response into screen state. Shared by the first
   // load (below) and by refresh() after every change.
   const applyDomainsResult = useCallback((result: ApiResult<{ domains: DomainRow[] }>) => {
     if (result.ok) {
@@ -60,26 +65,24 @@ export default function Dashboard() {
   }, []);
 
   async function refresh() {
-    applyDomainsResult(await requestJson<{ domains: DomainRow[] }>("/api/domains"));
+    applyDomainsResult(await backend.listDomains());
   }
 
   // First load. State is only set inside the .then callback, after the
-  // response arrives. The cancelled flag stops a late response from
-  // updating a page that has already gone away.
+  // data arrives. The cancelled flag stops a late response from updating
+  // a page that has already gone away.
   useEffect(() => {
     let cancelled = false;
-    void requestJson<{ domains: DomainRow[] }>("/api/domains").then((result) => {
+    void backend.listDomains().then((result) => {
       if (!cancelled) applyDomainsResult(result);
     });
     return () => {
       cancelled = true;
     };
-  }, [applyDomainsResult]);
+  }, [backend, applyDomainsResult]);
 
-  async function showHistory(domain: DomainRow) {
-    const result = await requestJson<{ scans: StoredScan[] }>(
-      `/api/domains/${encodeURIComponent(domain.id)}/scans`,
-    );
+  async function showHistory(domain: { id: string; hostname: string }) {
+    const result = await backend.listScans(domain.id);
     if (!result.ok) {
       setNotice(result.error);
       return;
@@ -98,11 +101,7 @@ export default function Dashboard() {
 
     setAdding(true);
     setFormError(null);
-    const result = await requestJson<{ domain: TrackedDomain }>("/api/domains", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hostname: trimmed }),
-    });
+    const result = await backend.addDomain(trimmed);
     setAdding(false);
 
     if (!result.ok) {
@@ -116,11 +115,7 @@ export default function Dashboard() {
   async function handleScan(domain: DomainRow) {
     setScanningId(domain.id);
     setNotice(null);
-    const result = await requestJson<{ scan: StoredScan }>(
-      `/api/domains/${encodeURIComponent(domain.id)}/scan`,
-      { method: "POST" },
-      SCAN_TIMEOUT_MS,
-    );
+    const result = await backend.scanDomain(domain);
     setScanningId(null);
 
     if (!result.ok) {
@@ -135,10 +130,7 @@ export default function Dashboard() {
     if (!window.confirm(`Remove ${domain.hostname} and all of its saved scans?`)) return;
 
     setNotice(null);
-    const result = await requestJson<{ ok: boolean }>(
-      `/api/domains/${encodeURIComponent(domain.id)}`,
-      { method: "DELETE" },
-    );
+    const result = await backend.removeDomain(domain.id);
     if (!result.ok) {
       setNotice(result.error);
       return;
@@ -146,23 +138,19 @@ export default function Dashboard() {
     if (history?.domainId === domain.id) setHistory(null);
     await refresh();
   }
-    async function handleClearHistory(target: History) {
+
+  async function handleClearHistory(target: { id: string; hostname: string }) {
     if (!window.confirm(`Delete all saved scans for ${target.hostname}? The domain stays tracked.`)) {
       return;
     }
-
     setNotice(null);
-    const result = await requestJson<{ ok: boolean; removed: number }>(
-      `/api/domains/${encodeURIComponent(target.domainId)}/scans`,
-      { method: "DELETE" },
-    );
+    const result = await backend.clearScans(target.id);
     if (!result.ok) {
       setNotice(result.error);
       return;
     }
-    setHistory({ ...target, scans: [] });
-    setOpenScanId(null);
     await refresh();
+    await showHistory(target);
   }
 
   const busy = scanningId !== null;
@@ -177,7 +165,9 @@ export default function Dashboard() {
         </Link>
       </header>
       <p className="mt-2 text-sm text-slate-400">
-        Domains you track, with their latest scan. Everything here is stored on this machine.
+        {mode === "browser"
+          ? "Your tracked domains and scan history are stored in this browser only. Scanning sends the domain name to LinkGuard to run the checks; the results are saved here, not on the server. Clearing this site's data in your browser deletes them."
+          : "Domains you track, with their latest scan. Everything here is stored on this machine."}
       </p>
 
       <form onSubmit={handleAdd} noValidate className="mt-8">
@@ -297,24 +287,20 @@ export default function Dashboard() {
 
       {history && (
         <section aria-labelledby="history-heading" className="mt-10">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 id="history-heading" className="text-lg font-semibold text-white">
               History for <span className="break-all font-mono">{history.hostname}</span>
             </h2>
             {history.scans.length > 0 && (
               <button
                 type="button"
-                onClick={() => handleClearHistory(history)}
-                disabled={busy}
-                className="rounded border border-red-500/40 px-3 py-1.5 text-sm text-red-300 hover:bg-red-500/10 focus:outline-none focus:ring-2 focus:ring-red-400/60 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => handleClearHistory({ id: history.domainId, hostname: history.hostname })}
+                className="rounded border border-red-500/40 px-3 py-1.5 text-sm text-red-300 hover:bg-red-500/10 focus:outline-none focus:ring-2 focus:ring-red-400/60"
               >
                 Clear history
               </button>
             )}
           </div>
-          <p className="mb-4 text-xs text-slate-500">
-            LinkGuard keeps the newest 20 scans for each domain and deletes older ones automatically.
-          </p>
 
           {history.scans.length === 0 ? (
             <p className="text-sm text-slate-400">No scans saved yet. Click Scan above.</p>
