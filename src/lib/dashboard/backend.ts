@@ -1,4 +1,6 @@
 import { requestJson, type ApiResult } from "./client";
+import type { ImportKind, ImportSummary } from "@/lib/portability/apply-import";
+import type { ExportableDomain } from "@/lib/portability/backup";
 import type { StoredScan, TrackedDomain } from "@/lib/storage/types";
 
 export type DomainRow = TrackedDomain & {
@@ -16,9 +18,17 @@ export interface DashboardBackend {
   listScans(domainId: string): Promise<ApiResult<{ scans: StoredScan[] }>>;
   removeDomain(domainId: string): Promise<ApiResult<{ ok: boolean }>>;
   clearScans(domainId: string): Promise<ApiResult<Record<string, unknown>>>;
+
+  /** Everything needed to build an export file. */
+  exportData(): Promise<ApiResult<{ domains: ExportableDomain[] }>>;
+  /** Reads and validates the text and reports what an import WOULD do. Writes nothing. */
+  previewImport(text: string, kind: ImportKind): Promise<ApiResult<{ summary: ImportSummary }>>;
+  /** Merges the import into what is stored. Never overwrites. */
+  applyImport(text: string, kind: ImportKind): Promise<ApiResult<{ summary: ImportSummary }>>;
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
+const BROWSER_ONLY = "Import and export are only available in browser mode.";
 
 /** Server mode: every call goes to the /api/domains routes (SQLite on the server). */
 export function createServerBackend(): DashboardBackend {
@@ -41,5 +51,9 @@ export function createServerBackend(): DashboardBackend {
     removeDomain: (id) => requestJson<{ ok: boolean }>(base(id), { method: "DELETE" }),
     clearScans: (id) =>
       requestJson<Record<string, unknown>>(`${base(id)}/scans`, { method: "DELETE" }),
+
+    exportData: async () => ({ ok: false, error: BROWSER_ONLY }),
+    previewImport: async () => ({ ok: false, error: BROWSER_ONLY }),
+    applyImport: async () => ({ ok: false, error: BROWSER_ONLY }),
   };
 }

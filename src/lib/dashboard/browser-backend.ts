@@ -1,7 +1,10 @@
 import { SCAN_TIMEOUT_MS, type DashboardBackend } from "./backend";
 import { requestJson, type ApiResult } from "./client";
 import { MAX_DOMAINS, parseDomainInput } from "./parse-domain";
+import { readImportText, runImport, type ImportKind, type ImportSummary } from "@/lib/portability/apply-import";
+import type { ExportableDomain } from "@/lib/portability/backup";
 import type { ScanReport } from "@/lib/scanner/types";
+import type { ImportableStore } from "@/lib/storage/indexeddb-store";
 import { MAX_SCANS_PER_DOMAIN, type ScanStore } from "@/lib/storage/types";
 
 // NOT imported from "@/lib/storage": that file pulls in SQLite, which must
@@ -27,12 +30,32 @@ function isUsableReport(value: unknown): value is ScanReport {
   return typeof (posture as { label?: unknown }).label === "string";
 }
 
+function canImport(store: ScanStore): store is ImportableStore {
+  return typeof (store as Partial<ImportableStore>).importScan === "function";
+}
+
 /**
  * Browser mode: domains and history live in the given store (IndexedDB in
  * the real app). The server is used only to run a scan.
  */
 export function createBrowserBackend(store: ScanStore): DashboardBackend {
   const owner = BROWSER_OWNER_ID;
+
+  async function importFlow(
+    text: string,
+    kind: ImportKind,
+    dryRun: boolean,
+  ): Promise<ApiResult<{ summary: ImportSummary }>> {
+    const read = readImportText(text, kind);
+    if (!read.ok) return { ok: false, error: read.error };
+    if (!canImport(store)) return { ok: false, error: STORAGE_ERROR };
+
+    const target = store;
+    return guarded(async () => {
+      const summary = await runImport(target, owner, read.source, dryRun);
+      return { ok: true, data: { summary } };
+    });
+  }
 
   return {
     listDomains: () =>
@@ -107,5 +130,21 @@ export function createBrowserBackend(store: ScanStore): DashboardBackend {
         const deleted = await store.clearScans(owner, domainId);
         return { ok: true, data: { deleted } };
       }),
+
+    exportData: () =>
+      guarded(async () => {
+        const domains = await store.listDomains(owner);
+        const exportable: ExportableDomain[] = await Promise.all(
+          domains.map(async (domain) => ({
+            hostname: domain.hostname,
+            createdAt: domain.createdAt,
+            scans: await store.listScans(owner, domain.id, MAX_SCANS_PER_DOMAIN),
+          })),
+        );
+        return { ok: true, data: { domains: exportable } };
+      }),
+
+    previewImport: (text, kind) => importFlow(text, kind, true),
+    applyImport: (text, kind) => importFlow(text, kind, false),
   };
 }

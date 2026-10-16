@@ -12,6 +12,15 @@ import {
  * changes (e.g. insert a scan + prune old ones) succeed or fail together.
  */
 
+/** A ScanStore that can also add a scan with an original timestamp (for imports). */
+export interface ImportableStore extends ScanStore {
+  importScan(
+    ownerId: string,
+    domainId: string,
+    scan: { scannedAt: string; report: ScanReport },
+  ): Promise<StoredScan>;
+}
+
 const DOMAINS = "domains";
 const SCANS = "scans";
 
@@ -107,7 +116,42 @@ async function ownedDomain(
   return row && row.ownerId === ownerId ? row : null;
 }
 
-export function createIndexedDbStore(dbName = "linkguard"): ScanStore {
+/**
+ * Inserts one scan and prunes the oldest beyond the retention limit, inside
+ * the caller's transaction. Used by both saveScan (timestamp = now) and
+ * importScan (timestamp = the original).
+ */
+async function insertScan(
+  tx: IDBTransaction,
+  ownerId: string,
+  domainId: string,
+  scannedAt: string,
+  report: ScanReport,
+): Promise<StoredScan> {
+  const domain = await ownedDomain(tx, ownerId, domainId);
+  if (!domain) throw new Error("Domain not found");
+
+  const scans = tx.objectStore(SCANS);
+  const row: ScanRow = {
+    id: crypto.randomUUID(),
+    domainId,
+    scannedAt,
+    postureLabel: report.posture.label,
+    report,
+  };
+  await request(scans.add(row));
+
+  // Keep only the newest MAX_SCANS_PER_DOMAIN. getAllKeys on an index
+  // returns keys ordered by (domainId, seq), so oldest come first.
+  const keys = await request(scans.index("byDomain").getAllKeys(IDBKeyRange.only(domainId)));
+  const excess = keys.length - MAX_SCANS_PER_DOMAIN;
+  for (let i = 0; i < excess; i++) {
+    await request(scans.delete(keys[i]));
+  }
+  return toScan(row);
+}
+
+export function createIndexedDbStore(dbName = "linkguard"): ImportableStore {
   let dbPromise: Promise<IDBDatabase> | null = null;
   const getDb = () => (dbPromise ??= openDb(dbName));
 
@@ -141,8 +185,7 @@ export function createIndexedDbStore(dbName = "linkguard"): ScanStore {
         return rows
           .map(toDomain)
           .sort(
-            (a, b) =>
-              a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+            (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
           );
       });
     },
@@ -172,31 +215,16 @@ export function createIndexedDbStore(dbName = "linkguard"): ScanStore {
 
     async saveScan(ownerId, domainId, report: ScanReport) {
       const db = await getDb();
-      return run(db, "readwrite", async (tx) => {
-        const domain = await ownedDomain(tx, ownerId, domainId);
-        if (!domain) throw new Error("Domain not found");
+      return run(db, "readwrite", (tx) =>
+        insertScan(tx, ownerId, domainId, new Date().toISOString(), report),
+      );
+    },
 
-        const scans = tx.objectStore(SCANS);
-        const row: ScanRow = {
-          id: crypto.randomUUID(),
-          domainId,
-          scannedAt: new Date().toISOString(),
-          postureLabel: report.posture.label,
-          report,
-        };
-        await request(scans.add(row));
-
-        // Keep only the newest MAX_SCANS_PER_DOMAIN. getAllKeys on an index
-        // returns keys ordered by (domainId, seq), so oldest come first.
-        const keys = await request(
-          scans.index("byDomain").getAllKeys(IDBKeyRange.only(domainId)),
-        );
-        const excess = keys.length - MAX_SCANS_PER_DOMAIN;
-        for (let i = 0; i < excess; i++) {
-          await request(scans.delete(keys[i]));
-        }
-        return toScan(row);
-      });
+    async importScan(ownerId, domainId, scan) {
+      const db = await getDb();
+      return run(db, "readwrite", (tx) =>
+        insertScan(tx, ownerId, domainId, scan.scannedAt, scan.report),
+      );
     },
 
     async listScans(ownerId, domainId, limit = MAX_SCANS_PER_DOMAIN) {
