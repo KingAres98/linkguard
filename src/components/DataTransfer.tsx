@@ -190,13 +190,13 @@ export default function DataTransfer({
       <h3 className="mt-5 text-sm font-semibold text-slate-200">Export</h3>
       <div className="mt-2 flex flex-wrap gap-2">
         <button type="button" className={BUTTON} disabled={busy} onClick={() => handleExport("backup")}>
-          Download backup (.json)
+          Backup (.json): restores everything
         </button>
         <button type="button" className={BUTTON} disabled={busy} onClick={() => handleExport("domains-list")}>
-          Domain list (.txt)
+          Domain names (.txt): names only
         </button>
         <button type="button" className={BUTTON} disabled={busy} onClick={() => handleExport("domains-csv")}>
-          CSV (.csv)
+          Summary (.csv): status and dates, for spreadsheets
         </button>
       </div>
 
