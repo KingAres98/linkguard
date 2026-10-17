@@ -110,3 +110,39 @@ saved.
   committed. `.env.example` documents the settings without values.
 - All external data (feeds, headers, DNS, certificates, import files) is treated
   as untrusted and rendered as plain text, never as markup.
+
+  
+## 8. Abuse protection on the scan endpoint
+
+In public mode, `/api/scan` is the one open door to the server, and every scan
+makes outbound requests. It is protected in three layers:
+
+- **Per client:** at most 30 scans per 10 minutes.
+- **Per target:** at most 6 scans of the same site per minute, across all
+  clients. A defensive tool must never become a way to hammer a third party.
+- **Concurrency:** at most 4 scans run at once; others get a "busy, try again"
+  response.
+
+**Why client identification is opt-in.** A plain request carries no reliable
+address, and headers such as `X-Forwarded-For` can be faked unless a trusted
+proxy sets them. The operator names the one header their proxy sets
+(`LINKGUARD_CLIENT_IP_HEADER`). Without it, all clients share one budget: fine for
+local use and still protective of the server, though not fair per person.
+
+**Known limits.** Counters live in memory, so they cover one server process; edge
+rate limiting at the host (decided in the deployment phase) is the complement. A
+flood of fake client identities could also push honest ones out of the counter
+table, which is why the per-target and concurrency layers exist independently.
+
+## 9. Browser security headers
+
+Every response carries a Content Security Policy that only allows our own origin,
+forbids framing, plugins, and off-site form posts, plus `nosniff`, a strict
+referrer policy, a locked-down permissions policy, and (in production) HSTS.
+
+**One accepted compromise.** The policy allows inline scripts, because Next.js
+ships small inline scripts for hydration. A nonce-based policy would be stricter.
+This is acceptable for now because the app renders no untrusted HTML (React
+escapes all text, and `dangerouslySetInnerHTML` is not used), so the CSP is a
+second layer rather than the only defense. Moving to nonces is a candidate for a
+later hardening pass.
