@@ -28,28 +28,34 @@ export default function CategorySection({
   const [open, setOpen] = useState(counts.fail > 0 || counts.warning > 0 || containsDriver);
 
   return (
-    <section className="rounded-lg border border-slate-800">
+    <section className="border border-line bg-panel/60">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/5 focus-visible:outline-offset-[-2px]"
       >
-        <span className="font-medium text-white">{CATEGORY_LABELS[group.category]}</span>
-        <span className="flex items-center gap-3 text-xs">
-          {counts.fail > 0 && <span className="text-red-400">{counts.fail} failed</span>}
-          {counts.warning > 0 && <span className="text-amber-400">{counts.warning} warning</span>}
-          {counts.pass > 0 && <span className="text-emerald-400">{counts.pass} passed</span>}
-          <span aria-hidden="true" className="text-slate-500">
-            {open ? "▲" : "▼"}
+        <span className="font-display text-base font-semibold tracking-wide text-white">
+          {CATEGORY_LABELS[group.category]}
+        </span>
+        <span className="flex items-center gap-3 font-mono text-xs tracking-wider">
+          {counts.fail > 0 && <span className="text-red-300">{counts.fail} failed</span>}
+          {counts.warning > 0 && <span className="text-signal">{counts.warning} warning</span>}
+          {counts.pass > 0 && <span className="text-emerald-300">{counts.pass} passed</span>}
+          <span aria-hidden="true" className="text-accent">
+            {open ? "\u25B2" : "\u25BC"}
           </span>
         </span>
       </button>
 
       {open && (
-        <div className="space-y-4 border-t border-slate-800 p-4">
+        <div className="space-y-4 border-t border-line p-4">
           {group.findings.map((finding) => (
-            <FindingCard key={finding.id} finding={finding} isPostureDriver={finding.id === postureDriverId} />
+            <FindingCard
+              key={finding.id}
+              finding={finding}
+              isPostureDriver={finding.id === postureDriverId}
+            />
           ))}
         </div>
       )}
