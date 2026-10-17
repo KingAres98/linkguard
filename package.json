@@ -11,8 +11,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "vercel-build": "npm run threat:update && next build",
-    "typecheck": "next typegen && tsc --noEmit"
+    "test:watch": "vitest",
+    "threat:update": "tsx scripts/update-threat-index.ts",
+    "typecheck": "next typegen && tsc --noEmit",
+    "vercel-build": "npm run threat:update && next build"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
