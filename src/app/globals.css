@@ -6,11 +6,198 @@
   --accent: #00e6ff;
 }
 
+/* Design tokens. Tailwind turns each --color-* into utilities such as
+   bg-panel, border-line, text-accent and text-muted, and each --font-* into
+   font-sans, font-mono and font-display. This mapping is what actually
+   applies the fonts; loading them in layout.tsx is not enough by itself. */
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-chakra), var(--font-geist-sans), ui-sans-serif,
+    system-ui, sans-serif;
+
+  --color-ground: #07080f;
+  --color-panel: #0c111d;
+  --color-line: #1d2a42;
+  --color-edge: #4f6a94;
+  --color-ink: #d5dbf0;
+  --color-muted: #94a3c0;
+  --color-accent: #00e6ff;
+  --color-signal: #ffb547;
+  --color-threat: #ff3d9a;
+}
+
 html {
   color-scheme: dark;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(ellipse at 50% -10%, rgb(0 230 255 / 0.12), transparent 55%),
+    linear-gradient(rgb(0 230 255 / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(0 230 255 / 0.04) 1px, transparent 1px);
+  background-size: auto, 40px 40px, 40px 40px;
   color: var(--foreground);
+}
+
+::selection {
+  background: rgb(0 230 255 / 0.3);
+  color: #ffffff;
+}
+
+/* Atmosphere: faint scan lines and one slow sweep. Both sit on top of the
+   page but never take clicks. */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 60;
+}
+
+body::before {
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgb(255 255 255 / 0.02) 0,
+    rgb(255 255 255 / 0.02) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+body::after {
+  top: 0;
+  height: 120px;
+  background: linear-gradient(to bottom, transparent, rgb(0 230 255 / 0.05), transparent);
+  animation: lg-sweep 12s linear infinite;
+}
+
+@keyframes lg-sweep {
+  from {
+    transform: translateY(-140px);
+  }
+  to {
+    transform: translateY(100vh);
+  }
+}
+
+@keyframes lg-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes lg-node {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes lg-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lg-scan-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+/* Utilities live in the components layer so Tailwind classes can override them. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  /* Cut corners. The size comes from --lg-cut (default 12px). */
+  .lg-chamfer {
+    clip-path: polygon(
+      0 0,
+      calc(100% - var(--lg-cut, 12px)) 0,
+      100% var(--lg-cut, 12px),
+      100% 100%,
+      var(--lg-cut, 12px) 100%,
+      0 calc(100% - var(--lg-cut, 12px))
+    );
+  }
+
+  .lg-ripple {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: lg-ripple 3.2s ease-out infinite;
+  }
+
+  .lg-node {
+    animation: lg-node 3.2s ease-in-out infinite;
+  }
+
+  .lg-rise {
+    opacity: 0;
+    animation: lg-rise 0.6s ease-out forwards;
+  }
+
+  .lg-scan-bar {
+    animation: lg-scan-bar 1.4s ease-in-out infinite;
+  }
+}
+
+@media (prefers-contrast: more) {
+  body::before,
+  body::after {
+    display: none;
+  }
+}
+
+@media print {
+  body::before,
+  body::after {
+    display: none;
+  }
+}
+
+/* Keep this block LAST: it switches off every animation above for people who
+   ask their system for less motion. A test checks that each one is covered. */
+@media (prefers-reduced-motion: reduce) {
+  body::after {
+    display: none;
+  }
+  .lg-ripple {
+    animation: none;
+    opacity: 0;
+  }
+  .lg-node,
+  .lg-scan-bar {
+    animation: none;
+  }
+  .lg-rise {
+    animation: none;
+    opacity: 1;
+  }
 }

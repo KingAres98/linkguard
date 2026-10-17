@@ -71,57 +71,75 @@ export default function ScanForm() {
   const hasError = state.phase === "error";
 
   return (
-    <div className="flex w-full flex-col items-center">
-      <form onSubmit={handleSubmit} noValidate className="w-full max-w-xl">
+    <div className="flex w-full flex-col">
+      <form onSubmit={handleSubmit} noValidate className="w-full max-w-2xl">
         <label
           htmlFor="url-input"
-          className="mb-2 block text-left text-sm font-medium text-slate-300"
+          className="mb-2 block font-mono text-xs tracking-[0.15em] text-muted uppercase"
         >
           Website URL
         </label>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <input
-            id="url-input"
-            name="url"
-            type="text"
-            inputMode="url"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="https://example.com"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            disabled={isLoading}
-            aria-invalid={hasError}
-            aria-describedby={hasError ? "url-error" : undefined}
-            className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900/60 px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-60"
-          />
+          {/* Outer shape is the 1px frame. It lights up on focus, or turns red
+              on an error, because clip-path would hide an ordinary outline. */}
+          <div className="lg-chamfer flex-1 bg-edge p-px transition-colors focus-within:bg-accent has-[[aria-invalid=true]]:bg-red-400 [--lg-cut:12px]">
+            <div className="lg-chamfer flex h-14 items-center gap-3 bg-panel px-4 [--lg-cut:11px]">
+              <span aria-hidden="true" className="font-mono text-lg text-signal">
+                &gt;
+              </span>
+              <input
+                id="url-input"
+                name="url"
+                type="text"
+                inputMode="url"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="https://example.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                disabled={isLoading}
+                aria-invalid={hasError}
+                aria-describedby={hasError ? "url-error" : undefined}
+                className="min-w-0 flex-1 bg-transparent font-mono text-base text-ink caret-signal placeholder:text-[#7b8fa4] focus:outline-none disabled:opacity-60"
+              />
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={isLoading}
-            className="rounded-md bg-cyan-400 px-6 py-3 font-semibold text-slate-950 transition hover:bg-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+            className="lg-chamfer h-14 bg-signal px-9 font-display text-base font-bold tracking-[0.14em] text-ground uppercase transition-colors hover:bg-[#ffc56b] focus-visible:outline-ground focus-visible:outline-offset-[-5px] disabled:cursor-not-allowed disabled:opacity-60 [--lg-cut:12px]"
           >
-            {isLoading ? "Scanning…" : "Scan URL"}
+            {isLoading ? "Scanning\u2026" : "Scan"}
           </button>
         </div>
 
+        {isLoading && (
+          <div aria-hidden="true" className="mt-3 h-0.5 w-full overflow-hidden bg-line">
+            <div className="lg-scan-bar h-full w-1/3 bg-accent" />
+          </div>
+        )}
+
         {state.phase === "error" && (
-          <p id="url-error" role="alert" className="mt-3 text-left text-sm text-red-400">
-            <span aria-hidden="true">✗ </span>
+          <p id="url-error" role="alert" className="mt-3 text-sm text-red-300">
+            <span aria-hidden="true">{"\u2717 "}</span>
             {state.message}
           </p>
         )}
 
-        <div role="status" aria-live="polite" className="mt-6 text-left text-sm">
-          {isLoading && <p className="text-slate-400">Running checks…</p>}
-          {state.phase === "done" && (
-                <p className="text-slate-300">Scan complete. Report shown below.</p>
-          )}
+        <div
+          role="status"
+          aria-live="polite"
+          className="mt-4 min-h-5 font-mono text-xs tracking-wider text-muted"
+        >
+          {isLoading && <p>Running checks{"\u2026"}</p>}
+          {state.phase === "done" && <p>Scan complete. Report shown below.</p>}
         </div>
       </form>
 
       {state.phase === "done" && (
-        <div className="mt-10 w-full max-w-3xl">
+        <div className="lg-rise mt-10 w-full max-w-3xl">
           <ReportView report={state.report} />
         </div>
       )}
