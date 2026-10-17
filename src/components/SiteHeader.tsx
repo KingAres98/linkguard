@@ -26,7 +26,7 @@ export default function SiteHeader({ current, showDashboardLink }: SiteHeaderPro
           aria-current={current === "scan" ? "page" : undefined}
           className={`${base} ${current === "scan" ? "text-accent" : ""}`}
         >
-          <span aria-hidden="true">// </span>SCAN
+                    <span aria-hidden="true">{"// "}</span>SCAN
         </Link>
         {showDashboardLink && (
           <Link
@@ -34,7 +34,7 @@ export default function SiteHeader({ current, showDashboardLink }: SiteHeaderPro
             aria-current={current === "dashboard" ? "page" : undefined}
             className={`${base} ${current === "dashboard" ? "text-accent" : ""}`}
           >
-            <span aria-hidden="true">// </span>DASHBOARD
+                        <span aria-hidden="true">{"// "}</span>DASHBOARD
           </Link>
         )}
       </nav>

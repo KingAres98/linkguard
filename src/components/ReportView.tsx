@@ -36,7 +36,7 @@ export default function ReportView({ report }: { report: ScanReport }) {
 
       <div className="mt-4 border-l-2 border-edge bg-panel/60 px-4 py-3">
         <p aria-hidden="true" className="font-mono text-xs tracking-[0.15em] text-accent">
-          // NOT A VERDICT
+                    {"// NOT A VERDICT"}
         </p>
         <p className="mt-1 text-sm leading-relaxed text-muted">
           This posture describes the technical configuration LinkGuard
