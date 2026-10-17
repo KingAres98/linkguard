@@ -8,6 +8,7 @@ import {
   createSqliteThreatIndex,
   defaultThreatDbPath,
   openThreatDatabase,
+  sealThreatDatabase,
 } from "../src/lib/threat/sqlite-threat-index";
 
 // Private download URLs live in .env.local. Next.js reads that file, but a
@@ -63,11 +64,8 @@ async function main() {
     }
   }
 
-  // Seal the database into one self-contained file: fold any pending write-ahead
-  // data into it, then leave WAL mode. A read-only host cannot create the side
-  // files WAL mode needs, so a sealed file is the one it can open.
-  db.pragma("wal_checkpoint(TRUNCATE)");
-  db.pragma("journal_mode = DELETE");
+  // One self-contained file, so a read-only host can open it.
+  sealThreatDatabase(db);
 
   db.close();
   if (failed) process.exitCode = 1;

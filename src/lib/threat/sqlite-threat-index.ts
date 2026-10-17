@@ -32,6 +32,27 @@ export function openThreatDatabase(path: string): Database.Database {
   return db;
 }
 
+/**
+ * Opens an existing threat database for reading only. Used on hosts whose
+ * disk is read-only, where the database is built during deployment and
+ * shipped with the code. It never creates, migrates or writes anything, and
+ * it throws if the file is missing, so a broken deployment fails loudly
+ * instead of quietly checking against an empty list.
+ */
+export function openThreatDatabaseReadOnly(path: string): Database.Database {
+  return new Database(path, { readonly: true, fileMustExist: true });
+}
+
+/**
+ * Folds any pending write-ahead data into the main file and leaves WAL mode,
+ * so the result is one self-contained file. A read-only host cannot create the
+ * side files WAL mode needs, so only a sealed file can be opened there.
+ */
+export function sealThreatDatabase(db: Database.Database): void {
+  db.pragma("wal_checkpoint(TRUNCATE)");
+  db.pragma("journal_mode = DELETE");
+}
+
 export function createSqliteThreatIndex(db: Database.Database): ThreatIndex {
   // Every value goes through a ? placeholder.
   const selectMatches = db.prepare("SELECT host, source FROM threat_hosts WHERE host = ?");

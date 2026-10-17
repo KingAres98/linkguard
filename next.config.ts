@@ -6,11 +6,17 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
 
   // The scanner reads the local threat index at run time. Next.js only copies
-  // files it can see being imported, and it cannot see a database opened by
-  // path, so we name it here. Without this line a hosted scan function would
-  // ship without its threat list.
+  // files it can see being imported, and it cannot see (a) a database opened
+  // by path or (b) the prebuilt SQLite add-on that better-sqlite3 picks by
+  // operating system when it starts. Without these lines a hosted scan
+  // function would ship without its threat list, or without the code needed
+  // to read it. Hosting runs Linux, so only the Linux add-ons are included
+  // (the Windows and macOS ones would just add weight).
   outputFileTracingIncludes: {
-    "/api/scan": ["./data/threat-index.db"],
+    "/api/scan": [
+      "./data/threat-index.db",
+      "./node_modules/better-sqlite3/prebuilds/linux-*.node",
+    ],
   },
 
   async headers() {
