@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import DataTransfer from "@/components/DataTransfer";
 import ReportView from "@/components/ReportView";
+import { postureStyleFor } from "@/components/posture-style";
 import { createBrowserBackend } from "@/lib/dashboard/browser-backend";
 import { createServerBackend, type DomainRow } from "@/lib/dashboard/backend";
 import type { ApiResult } from "@/lib/dashboard/client";
@@ -13,20 +14,23 @@ import type { StoredScan } from "@/lib/storage/types";
 
 type History = { domainId: string; hostname: string; scans: StoredScan[] };
 
-// Keyed by the label text. Unknown labels fall back to a neutral style.
-const POSTURE_CLASSES: Record<string, string> = {
-  "Known Threat Listing": "border-rose-500/60 text-rose-200",
-  "Critical Issues Found": "border-red-500/50 text-red-300",
-  "Needs Attention": "border-amber-500/50 text-amber-300",
-  "Good Configuration — Minor Notes": "border-cyan-500/50 text-cyan-300",
-  "Good Configuration Observed": "border-emerald-500/50 text-emerald-300",
-  "Insufficient Data": "border-slate-500/50 text-slate-300",
-};
+// Small bordered buttons. The focus ring comes from the global
+// :focus-visible rule, so no per-button focus classes are needed.
+const BUTTON_BASE =
+  "border px-3 py-1.5 font-mono text-xs tracking-wider uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+const BUTTON_ACCENT = `${BUTTON_BASE} border-accent/60 text-accent enabled:hover:bg-accent/10`;
+const BUTTON_PLAIN = `${BUTTON_BASE} border-edge/60 text-ink enabled:hover:border-accent enabled:hover:text-accent`;
+const BUTTON_DANGER = `${BUTTON_BASE} border-red-400/40 text-red-300 enabled:hover:bg-red-400/10`;
 
+// The label is always shown; colour only helps scanning.
 function PostureTag({ label }: { label: string }) {
-  const classes = POSTURE_CLASSES[label] ?? "border-slate-500/50 text-slate-300";
+  const style = postureStyleFor(label);
   return (
-    <span className={`rounded border px-2 py-0.5 text-xs font-semibold ${classes}`}>{label}</span>
+    <span
+      className={`border px-2 py-0.5 font-mono text-xs font-semibold tracking-wider ${style.border} ${style.text}`}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -166,76 +170,105 @@ export default function Dashboard({ mode }: { mode: Exclude<DashboardMode, "off"
 
   return (
     <div className="text-left">
-      <header className="flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-widest text-white">DASHBOARD</h1>
-        <Link href="/" className="text-sm text-cyan-400 hover:text-cyan-300">
-          ← Scan a single URL
+      <p aria-hidden="true" className="font-mono text-xs tracking-[0.2em] text-accent">
+        [ YOUR WATCHLIST ]
+      </p>
+      <header className="mt-1 flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="font-display text-3xl font-bold tracking-wide text-white">DASHBOARD</h1>
+        <Link
+          href="/"
+          className="font-mono text-xs tracking-wider text-accent transition-colors hover:text-white"
+        >
+          {"\u2190 Scan a single URL"}
         </Link>
       </header>
-      <p className="mt-2 text-sm text-slate-400">
+      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
         {mode === "browser"
           ? "Your tracked domains and scan history are stored in this browser only. Scanning sends the domain name to LinkGuard to run the checks; the results are saved here, not on the server. Clearing this site's data in your browser deletes them."
           : "Domains you track, with their latest scan. Everything here is stored on this machine."}
       </p>
 
-      <form onSubmit={handleAdd} noValidate className="mt-8">
-        <label htmlFor="domain-input" className="mb-2 block text-sm font-medium text-slate-300">
+      <form onSubmit={handleAdd} noValidate className="mt-8 max-w-2xl">
+        <label
+          htmlFor="domain-input"
+          className="mb-2 block font-mono text-xs tracking-[0.15em] text-muted uppercase"
+        >
           Add a domain
         </label>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <input
-            id="domain-input"
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="example.com"
-            value={hostname}
-            onChange={(e) => setHostname(e.target.value)}
-            disabled={adding}
-            aria-invalid={formError !== null}
-            aria-describedby={formError ? "domain-error" : undefined}
-            className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900/60 px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-60"
-          />
+          {/* Outer shape is the 1px frame; it lights up on focus, or turns red
+              on an error, because clip-path would hide an ordinary outline. */}
+          <div className="lg-chamfer flex-1 bg-edge p-px transition-colors focus-within:bg-accent has-[[aria-invalid=true]]:bg-red-400 [--lg-cut:12px]">
+            <div className="lg-chamfer flex h-14 items-center gap-3 bg-panel px-4 [--lg-cut:11px]">
+              <span aria-hidden="true" className="font-mono text-lg text-signal">
+                &gt;
+              </span>
+              <input
+                id="domain-input"
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="example.com"
+                value={hostname}
+                onChange={(e) => setHostname(e.target.value)}
+                disabled={adding}
+                aria-invalid={formError !== null}
+                aria-describedby={formError ? "domain-error" : undefined}
+                className="min-w-0 flex-1 bg-transparent font-mono text-base text-ink caret-signal placeholder:text-[#7b8fa4] focus:outline-none disabled:opacity-60"
+              />
+            </div>
+          </div>
           <button
             type="submit"
             disabled={adding}
-            className="rounded-md bg-cyan-400 px-6 py-3 font-semibold text-slate-950 transition hover:bg-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+            className="lg-chamfer h-14 bg-signal px-9 font-display text-base font-bold tracking-[0.14em] text-ground uppercase transition-colors hover:bg-[#ffc56b] focus-visible:outline-ground focus-visible:outline-offset-[-5px] disabled:cursor-not-allowed disabled:opacity-60 [--lg-cut:12px]"
           >
-            {adding ? "Adding…" : "Add domain"}
+            {adding ? "Adding\u2026" : "Add domain"}
           </button>
         </div>
         {formError && (
-          <p id="domain-error" role="alert" className="mt-3 text-sm text-red-400">
-            <span aria-hidden="true">✗ </span>
+          <p id="domain-error" role="alert" className="mt-3 text-sm text-red-300">
+            <span aria-hidden="true">{"\u2717 "}</span>
             {formError}
           </p>
         )}
       </form>
 
       <div role="status" aria-live="polite" className="mt-6 min-h-6 text-sm">
-        {busy && <p className="text-slate-400">Scanning… this can take several seconds.</p>}
+        {busy && (
+          <p className="font-mono text-xs tracking-wider text-muted">
+            {"Scanning\u2026 this can take several seconds."}
+          </p>
+        )}
         {notice && (
-          <p role="alert" className="text-red-400">
-            <span aria-hidden="true">✗ </span>
+          <p role="alert" className="text-red-300">
+            <span aria-hidden="true">{"\u2717 "}</span>
             {notice}
           </p>
         )}
       </div>
+      {busy && (
+        <div aria-hidden="true" className="mt-1 h-0.5 w-full max-w-2xl overflow-hidden bg-line">
+          <div className="lg-scan-bar h-full w-1/3 bg-accent" />
+        </div>
+      )}
 
-      <section aria-labelledby="domains-heading" className="mt-4">
-        <h2 id="domains-heading" className="mb-3 text-lg font-semibold text-white">
+      <section aria-labelledby="domains-heading" className="mt-6">
+        <h2 id="domains-heading" className="mb-3 font-display text-xl font-semibold text-white">
           Tracked domains
         </h2>
 
         {loadError && (
-          <p role="alert" className="text-sm text-red-400">
-            <span aria-hidden="true">✗ </span>
+          <p role="alert" className="text-sm text-red-300">
+            <span aria-hidden="true">{"\u2717 "}</span>
             {loadError}
           </p>
         )}
-        {!loadError && domains === null && <p className="text-sm text-slate-400">Loading…</p>}
+        {!loadError && domains === null && (
+          <p className="text-sm text-muted">{"Loading\u2026"}</p>
+        )}
         {domains !== null && domains.length === 0 && (
-          <p className="text-sm text-slate-400">No domains yet. Add one above to get started.</p>
+          <p className="text-sm text-muted">No domains yet. Add one above to get started.</p>
         )}
 
         {domains !== null && domains.length > 0 && (
@@ -243,37 +276,41 @@ export default function Dashboard({ mode }: { mode: Exclude<DashboardMode, "off"
             {domains.map((domain) => (
               <li
                 key={domain.id}
-                className="rounded-lg border border-slate-800 bg-slate-900/50 p-4"
+                className={`border border-l-[3px] border-line bg-panel p-4 ${
+                  domain.latest ? postureStyleFor(domain.latest.postureLabel).edge : "border-l-edge"
+                }`}
               >
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="break-all font-mono text-white">{domain.hostname}</span>
+                  <span className="font-mono break-all text-white">{domain.hostname}</span>
                   {domain.latest ? (
                     <PostureTag label={domain.latest.postureLabel} />
                   ) : (
-                    <span className="text-xs text-slate-500">Not scanned yet</span>
+                    <span className="font-mono text-xs tracking-wider text-muted">
+                      Not scanned yet
+                    </span>
                   )}
                 </div>
                 {domain.latest && (
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 font-mono text-xs text-muted">
                     Last scanned {formatTime(domain.latest.scannedAt)}
                   </p>
                 )}
 
-                <div className="mt-4 flex flex-wrap gap-2 text-sm">
+                <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => handleScan(domain)}
                     disabled={busy}
                     aria-label={`Scan ${domain.hostname}`}
-                    className="rounded border border-cyan-500/60 px-3 py-1.5 text-cyan-300 hover:bg-cyan-500/10 focus:outline-none focus:ring-2 focus:ring-cyan-400/60 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={BUTTON_ACCENT}
                   >
-                    {scanningId === domain.id ? "Scanning…" : "Scan"}
+                    {scanningId === domain.id ? "Scanning\u2026" : "Scan"}
                   </button>
                   <button
                     type="button"
                     onClick={() => showHistory(domain)}
                     aria-label={`View history for ${domain.hostname}`}
-                    className="rounded border border-slate-600 px-3 py-1.5 text-slate-300 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
+                    className={BUTTON_PLAIN}
                   >
                     History
                   </button>
@@ -282,7 +319,7 @@ export default function Dashboard({ mode }: { mode: Exclude<DashboardMode, "off"
                     onClick={() => handleRemove(domain)}
                     disabled={busy}
                     aria-label={`Remove ${domain.hostname}`}
-                    className="ml-auto rounded border border-red-500/40 px-3 py-1.5 text-red-300 hover:bg-red-500/10 focus:outline-none focus:ring-2 focus:ring-red-400/60 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={`ml-auto ${BUTTON_DANGER}`}
                   >
                     Remove
                   </button>
@@ -304,14 +341,14 @@ export default function Dashboard({ mode }: { mode: Exclude<DashboardMode, "off"
       {history && (
         <section aria-labelledby="history-heading" className="mt-10">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 id="history-heading" className="text-lg font-semibold text-white">
-              History for <span className="break-all font-mono">{history.hostname}</span>
+            <h2 id="history-heading" className="font-display text-xl font-semibold text-white">
+              History for <span className="font-mono break-all">{history.hostname}</span>
             </h2>
             {history.scans.length > 0 && (
               <button
                 type="button"
                 onClick={() => handleClearHistory({ id: history.domainId, hostname: history.hostname })}
-                className="rounded border border-red-500/40 px-3 py-1.5 text-sm text-red-300 hover:bg-red-500/10 focus:outline-none focus:ring-2 focus:ring-red-400/60"
+                className={BUTTON_DANGER}
               >
                 Clear history
               </button>
@@ -319,7 +356,7 @@ export default function Dashboard({ mode }: { mode: Exclude<DashboardMode, "off"
           </div>
 
           {history.scans.length === 0 ? (
-            <p className="text-sm text-slate-400">No scans saved yet. Click Scan above.</p>
+            <p className="text-sm text-muted">No scans saved yet. Click Scan above.</p>
           ) : (
             <ul className="space-y-2">
               {history.scans.map((scan) => (
@@ -328,9 +365,11 @@ export default function Dashboard({ mode }: { mode: Exclude<DashboardMode, "off"
                     type="button"
                     onClick={() => setOpenScanId(scan.id === openScanId ? null : scan.id)}
                     aria-expanded={scan.id === openScanId}
-                    className="flex w-full flex-wrap items-center justify-between gap-2 rounded border border-slate-800 px-4 py-3 text-left hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
+                    className="flex w-full flex-wrap items-center justify-between gap-2 border border-line bg-panel/60 px-4 py-3 text-left transition-colors hover:bg-accent/5 aria-expanded:border-accent/50 focus-visible:outline-offset-[-2px]"
                   >
-                    <span className="text-sm text-slate-300">{formatTime(scan.scannedAt)}</span>
+                    <span className="font-mono text-xs tracking-wider text-ink">
+                      {formatTime(scan.scannedAt)}
+                    </span>
                     <PostureTag label={scan.postureLabel} />
                   </button>
                 </li>
@@ -339,7 +378,7 @@ export default function Dashboard({ mode }: { mode: Exclude<DashboardMode, "off"
           )}
 
           {openScan && (
-            <div className="mt-8">
+            <div className="lg-rise mt-8">
               <ReportView report={openScan.report} />
             </div>
           )}

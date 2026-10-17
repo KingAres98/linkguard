@@ -2,41 +2,7 @@ import type { ScanReport } from "@/lib/scanner/types";
 import { sortFindings, groupByCategory } from "@/lib/scanner/sort";
 import { summarizeFindings } from "@/lib/scanner/summary";
 import CategorySection from "./CategorySection";
-
-type PostureStyle = { frame: string; text: string };
-
-// Visual weight only. The label text itself is always shown, so color is
-// never the only signal. Even the best result is cyan, not green: this
-// describes configuration, and a green block would read as "safe".
-const POSTURE_STYLES: { test: (label: string) => boolean; style: PostureStyle }[] = [
-  {
-    test: (l) => l === "Known Threat Listing",
-    style: { frame: "bg-threat/70", text: "text-threat" },
-  },
-  {
-    test: (l) => l === "Critical Issues Found",
-    style: { frame: "bg-red-400/60", text: "text-red-300" },
-  },
-  {
-    test: (l) => l === "Needs Attention",
-    style: { frame: "bg-signal/60", text: "text-signal" },
-  },
-  {
-    test: (l) => l === "Good Configuration Observed",
-    style: { frame: "bg-accent/60", text: "text-accent" },
-  },
-  {
-    // "Good Configuration - Minor Notes" (any dash character)
-    test: (l) => l.startsWith("Good Configuration"),
-    style: { frame: "bg-sky-400/50", text: "text-sky-300" },
-  },
-];
-
-const FALLBACK_POSTURE: PostureStyle = { frame: "bg-edge/70", text: "text-muted" };
-
-function postureStyleFor(label: string): PostureStyle {
-  return POSTURE_STYLES.find((entry) => entry.test(label))?.style ?? FALLBACK_POSTURE;
-}
+import { postureStyleFor } from "./posture-style";
 
 export default function ReportView({ report }: { report: ScanReport }) {
   const summary = summarizeFindings(report.findings);

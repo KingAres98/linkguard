@@ -47,8 +47,11 @@ function downloadText(filename: string, content: string, mime: string) {
 
 type Pending = { text: string; kind: ImportKind; summary: ImportSummary };
 
+// The focus ring comes from the global :focus-visible rule.
 const BUTTON =
-  "rounded border border-slate-600 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-400/60 disabled:cursor-not-allowed disabled:opacity-50";
+  "border border-edge/60 px-3 py-1.5 text-left font-mono text-xs tracking-wider text-ink transition-colors enabled:hover:border-accent enabled:hover:text-accent disabled:cursor-not-allowed disabled:opacity-50";
+
+const HEADING = "font-mono text-xs tracking-[0.15em] text-accent/80 uppercase";
 
 export default function DataTransfer({
   backend,
@@ -167,18 +170,18 @@ export default function DataTransfer({
   const showNudge = hasData && backupDays !== undefined && (backupDays === null || backupDays >= NUDGE_AFTER_DAYS);
 
   return (
-    <section aria-labelledby="transfer-heading" className="mt-10 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-      <h2 id="transfer-heading" className="text-lg font-semibold text-white">
+    <section aria-labelledby="transfer-heading" className="mt-10 border border-line bg-panel/60 p-5">
+      <h2 id="transfer-heading" className="font-display text-xl font-semibold text-white">
         Backup and import
       </h2>
-      <p className="mt-1 text-sm text-slate-400">
+      <p className="mt-1 text-sm leading-relaxed text-muted">
         Your data lives only in this browser. Export a backup to keep it safe, move it to another
         device, or restore it if you clear this site&apos;s data. Files are read in your browser and
         are never uploaded.
       </p>
 
       {backupDays !== undefined && (
-        <p className={`mt-3 text-sm ${showNudge ? "text-amber-300" : "text-slate-400"}`}>
+        <p className={`mt-3 font-mono text-xs tracking-wider ${showNudge ? "text-signal" : "text-muted"}`}>
           {backupDays === null
             ? "You have not exported a backup yet."
             : backupDays === 0
@@ -187,7 +190,7 @@ export default function DataTransfer({
         </p>
       )}
 
-      <h3 className="mt-5 text-sm font-semibold text-slate-200">Export</h3>
+      <h3 className={`mt-6 ${HEADING}`}>Export</h3>
       <div className="mt-2 flex flex-wrap gap-2">
         <button type="button" className={BUTTON} disabled={busy} onClick={() => handleExport("backup")}>
           Backup (.json): restores everything
@@ -200,8 +203,8 @@ export default function DataTransfer({
         </button>
       </div>
 
-      <h3 className="mt-5 text-sm font-semibold text-slate-200">Import</h3>
-      <p className="mt-1 text-xs text-slate-500">
+      <h3 className={`mt-6 ${HEADING}`}>Import</h3>
+      <p className="mt-1 text-xs leading-relaxed text-muted">
         Accepts a LinkGuard backup, or a list of domains in a common format: plain text, hosts
         file, CSV with a &quot;domain&quot; column, JSON, or a list of URLs. You will see a preview before
         anything is saved, and existing domains and history are never overwritten.
@@ -212,15 +215,19 @@ export default function DataTransfer({
         onChange={handleFile}
         disabled={busy}
         aria-label="Choose a file to import"
-        className="mt-2 block w-full text-sm text-slate-300 file:mr-3 file:rounded file:border file:border-slate-600 file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:text-slate-200 hover:file:bg-slate-800"
+        className="mt-2 block w-full text-sm text-muted file:mr-3 file:cursor-pointer file:border file:border-edge/60 file:bg-transparent file:px-3 file:py-1.5 file:font-mono file:text-xs file:tracking-wider file:text-ink hover:file:border-accent hover:file:text-accent"
       />
 
       {pending && (
-        <div className="mt-4 rounded border border-cyan-500/40 p-3" role="region" aria-label="Import preview">
-          <p className="text-sm font-semibold text-cyan-200">
+        <div
+          className="mt-4 border border-accent/40 bg-accent/5 p-3"
+          role="region"
+          aria-label="Import preview"
+        >
+          <p className="font-mono text-xs font-semibold tracking-wider text-accent">
             Preview ({pending.kind === "backup" ? "LinkGuard backup" : "domain list"})
           </p>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink/90">
             {describeImport(pending.summary, "preview").map((line) => (
               <li key={line}>{line}</li>
             ))}
@@ -242,10 +249,10 @@ export default function DataTransfer({
       )}
 
       <div role="status" aria-live="polite" className="mt-3 text-sm">
-        {busy && <p className="text-slate-400">Working…</p>}
+        {busy && <p className="font-mono text-xs tracking-wider text-muted">{"Working\u2026"}</p>}
         {error && (
-          <p role="alert" className="text-red-400">
-            <span aria-hidden="true">✗ </span>
+          <p role="alert" className="text-red-300">
+            <span aria-hidden="true">{"\u2717 "}</span>
             {error}
           </p>
         )}
