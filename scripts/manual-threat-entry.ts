@@ -1,3 +1,4 @@
+import { describeError } from "../src/lib/threat/safe-error";
 import {
   createSqliteThreatIndex,
   defaultThreatDbPath,
@@ -33,6 +34,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error);
+  console.error(describeError(error));
   process.exitCode = 1;
 });
