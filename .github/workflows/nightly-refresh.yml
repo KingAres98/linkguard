@@ -1,0 +1,34 @@
+name: Nightly threat-feed refresh
+
+# Asks Vercel to rebuild the site. The build downloads fresh threat feeds
+# (npm run vercel-build). If a feed is down the build fails on purpose and
+# Vercel keeps serving the last good deployment.
+on:
+  schedule:
+    # 06:17 UTC daily (about 2 AM US Eastern). An odd minute avoids the
+    # busy top of the hour, when scheduled jobs are often delayed.
+    - cron: "17 6 * * *"
+  workflow_dispatch: # lets you run it by hand from the Actions tab
+
+# This job needs no access to the repository.
+permissions: {}
+
+jobs:
+  trigger-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask Vercel to rebuild
+        env:
+          HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK_URL" ]; then
+            echo "The VERCEL_DEPLOY_HOOK_URL secret is not set."
+            exit 1
+          fi
+          status=$(curl --silent --output /dev/null --write-out "%{http_code}" \
+            --max-time 30 --request POST "$HOOK_URL")
+          echo "Vercel answered with HTTP $status"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            exit 1
+          fi
