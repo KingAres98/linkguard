@@ -1,6 +1,7 @@
 import ScanForm from "@/components/ScanForm";
 import SiteHeader from "@/components/SiteHeader";
 import { getDashboardMode } from "@/lib/dashboard/mode";
+import SiteFooter from "@/components/SiteFooter";
 
 export default function Home() {
   // Read when the site is built. A self-hosted copy that changes its
@@ -34,7 +35,8 @@ export default function Home() {
           LinkGuard reports observable security properties. It does not decide
           whether a website is &quot;safe.&quot;
         </p>
-      </main>
+         </main>
+          <SiteFooter />
     </div>
   );
 }
