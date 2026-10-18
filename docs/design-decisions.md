@@ -146,3 +146,99 @@ This is acceptable for now because the app renders no untrusted HTML (React
 escapes all text, and `dangerouslySetInnerHTML` is not used), so the CSP is a
 second layer rather than the only defense. Moving to nonces is a candidate for a
 later hardening pass.
+
+## 10. Hosting: Vercel Hobby on a subdomain
+
+LinkGuard runs on Vercel's free Hobby plan at `linkguard.spectator98.com`. The
+goal was "deploy and forget": no server to patch, no firewall to maintain, and
+a cost close to zero.
+
+- **Why not a free virtual machine (such as Oracle Cloud):** full control, but
+  operating system updates, firewall rules and uptime become our job forever.
+- **Why not Cloudflare Workers:** the scanner needs Node.js features that
+  Workers do not fully offer, such as the native SQLite module and direct
+  TLS and DNS inspection.
+- **The subdomain record is "DNS only" (not proxied by Cloudflare).** Vercel
+  then sees the real visitor and sets the client address itself, so the rate
+  limiter can trust it. Proxying would put a second layer in between.
+- **The address was fixed before launch on purpose.** Browser storage belongs
+  to one exact address, so moving LinkGuard later would strand everyone's
+  saved dashboard data.
+- **Limits accepted:** Hobby is for non-commercial use only, and the rate
+  limiter's memory is per server instance, so it is a speed bump rather than
+  a wall.
+
+## 11. The threat index is built at deploy time and read-only at runtime
+
+On Vercel the running site cannot write to its own disk. So the threat index
+is built during each deployment, bundled with the site, and only ever read
+while serving scans.
+
+- **Bundled explicitly.** `next.config.ts` lists the database file and the
+  prebuilt Linux SQLite binaries, so they ship with the scan route.
+- **Sealed before shipping.** The build writes everything into the single
+  database file, so a read-only host can open it without helper files.
+- **Opened read-only, never created.** If the file is missing or unreadable,
+  the open fails and is not cached, so the next scan tries again. An empty
+  database would answer "not listed" for everything, and section 1 forbids
+  that: the scan reports "could not check" instead.
+- **A missing feed fails the build (`THREAT_REQUIRE_ALL_SOURCES=true`).**
+  Vercel then keeps serving the last good deployment. Yesterday's complete
+  data is more honest than today's half-empty data, which would silently
+  miss threats.
+- **Build logs are scrubbed.** Errors from the feed updater pass through a
+  redaction step that removes URLs and secret values, because the URLhaus
+  download address contains a private key.
+
+## 12. Feeds refresh nightly by redeploying
+
+Phishing lists change daily, but the index only updates when the site is
+rebuilt. A GitHub Actions job therefore calls a Vercel deploy hook every night.
+
+- **Why a rebuild and not a scheduled function:** the running site cannot
+  write the database (section 11), so the only way to new data is a new build.
+- **The hook address is a secret.** Anyone holding it can trigger builds, so it
+  lives in GitHub's secret store, and a test fails if one is ever pasted into
+  a workflow file. The job itself gets no repository permissions.
+- **A green job is not a green build.** The job only proves Vercel accepted
+  the request. Failed builds show in Vercel's deployment list and its email
+  notifications.
+- **Known limit:** GitHub pauses scheduled jobs on public repositories after
+  about 60 days without activity. Re-enabling is one click.
+
+## 13. Automated checks and repository security
+
+Every push and pull request runs type checking, lint, tests and a dependency
+audit on GitHub, so a broken change is caught before Vercel deploys it.
+
+- **Type checking generates Next.js route types first (`npm run typecheck`).**
+  Those types normally appear only after a local build, so a clean machine
+  would otherwise fail.
+- **The audit is a separate job, production packages only, high severity and
+  up.** A newly published advisory can turn it red without any change of ours,
+  and that should never hide a real test failure.
+- **Guard tests protect things that broke once or must never break:** every
+  script that another script calls must exist, workflow files must not contain
+  a deploy-hook address, and every animation must have a reduced-motion
+  switch-off.
+- **GitHub settings:** private vulnerability reporting (see `SECURITY.md`),
+  Dependabot alerts and secret scanning are on.
+
+## 14. The visual identity
+
+LinkGuard's look is dark and technical, matching the portfolio site it is
+linked from. It is designed so that nothing about it implies a site is safe.
+
+- **The logo is a trail leading into a ring:** following a link to look
+  closely at what is underneath. There is deliberately no shield, padlock or
+  checkmark, because those symbols mean "safe".
+- **The best overall posture is cyan, never green.** A large green block reads
+  as "safe" (section 1). Green appears only on a single check's PASS badge,
+  and a test fails if the best posture is ever styled green.
+- **Colour is never the only signal.** Every status also has its text label,
+  and badges have a symbol.
+- **Fonts are served from our own domain.** The security policy only allows
+  fonts from LinkGuard itself, so they are bundled at build time: Chakra Petch
+  for headings, Geist for text, Geist Mono for technical values.
+- **Motion is light and optional.** A slow ripple on the logo, a faint scan
+  line and fade-ins.
