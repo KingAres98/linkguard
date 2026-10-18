@@ -242,3 +242,16 @@ linked from. It is designed so that nothing about it implies a site is safe.
   for headings, Geist for text, Geist Mono for technical values.
 - **Motion is light and optional.** A slow ripple on the logo, a faint scan
   line and fade-ins.
+
+  ## 15. Third-party data and licensing
+
+LinkGuard's code is MIT-licensed. The threat data is not ours: each feed keeps
+its own terms, credited in the site footer and in `THIRD_PARTY_NOTICES.md`.
+
+- **No feed data is stored in the repository.** The index is built from the
+  sources at deploy time, so sharing the code never redistributes anyone's list.
+- **Everyone who deploys LinkGuard brings their own URLhaus key** and is
+  responsible for following each source's terms.
+- **Non-commercial by design.** URLhaus may require a paid subscription for
+  commercial or for-profit use, and the Vercel Hobby plan is non-commercial
+  too. Charging for LinkGuard would mean revisiting both.
